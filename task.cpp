@@ -12,7 +12,7 @@ std::suspend_never TaskPromise::initial_suspend()
     return {};
 }
 
-std::suspend_always TaskPromise::final_suspend()
+std::suspend_always TaskPromise::final_suspend() noexcept
 {
     return {};
 }

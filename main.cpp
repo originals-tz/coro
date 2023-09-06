@@ -1,140 +1,40 @@
 #include <iostream>
-#include "task.h"
-#include <event.h>
-#include <thread>
-#include <utility>
-#include <vector>
 #include <memory>
-#include <list>
-#include <sys/eventfd.h>
-#include <bits/fcntl.h>
-#include <fcntl.h>
-#include <optional>
+#include <latch>
+#include "task.h"
+#include "sleep.h"
 
-class CoTask
+class SleepTask : public CoTask
 {
 public:
-    CoTask() = default;
-    virtual ~CoTask() = default;
-    virtual Task CoHandle() = 0;
-    void SetTask(Task&& task) {m_task = std::move(task);}
-private:
-    std::optional<Task> m_task;
-};
-
-int32_t GetFD()
-{
-    int fd = eventfd(0, 0);
-    int opts;
-    opts = fcntl(fd, F_GETFL);
-    opts = opts | O_NONBLOCK;
-    fcntl(fd, F_SETFL, opts);
-    return fd;
-}
-
-struct Context
-{
-    Context()
+    Task CoHandle() override
     {
-        m_task_list_fd = GetFD();
+        std::cout << "start" << std::endl;
+        co_await CoSleep(1);
+        co_await Test2();
+        std::cout << "end" << std::endl;
     }
 
-
-    void Add(const std::shared_ptr<CoTask>& task)
+    Task Test2()
     {
-        std::lock_guard lk(m_mut);
-        m_task_list.emplace_back(task);
-        eventfd_write(m_task_list_fd, eventfd_t(1));
+        std::cout << "start2" << std::endl;
+        co_await CoSleep(1);
+        co_await Test3();
+        std::cout << "end2" << std::endl;
     }
 
-    std::shared_ptr<CoTask> Get()
+    Task Test3()
     {
-        std::lock_guard lk(m_mut);
-        if (m_task_list.empty())
-        {
-            return nullptr;
-        }
-        auto task = m_task_list.front();
-        m_task_list.pop_front();
-        return task;
+        std::cout << "start3" << std::endl;
+        co_await CoSleep(1);
+        std::cout << "end3" << std::endl;
     }
-
-    std::mutex m_mut;
-    int32_t m_task_list_fd = -1;
-    std::list<std::shared_ptr<CoTask>> m_task_list;
-};
-
-class Worker
-{
-public:
-    explicit Worker(std::shared_ptr<Context> ctx)
-        : m_ctx(std::move(ctx))
-    {
-    }
-
-    void Run()
-    {
-        m_base = event_base_new();
-        m_list_ev = event_new(m_base, m_ctx->m_task_list_fd, EV_READ, NewTaskEventCallback, this);
-
-        m_quit_fd = GetFD();
-        m_quit_ev = event_new(m_base, m_quit_fd, EV_READ, QuitCallback, this);
-
-        event_base_dispatch(m_base);
-        event_base_free(m_base);
-    }
-
-    void Stop()
-    {
-        eventfd_write(m_quit_fd, eventfd_t(1));
-    }
-private:
-
-    static void NewTaskEventCallback(evutil_socket_t fd, short event, void* arg)
-    {
-        auto pthis = static_cast<Worker*>(arg);
-        pthis->RunTask();
-    }
-
-    static void QuitCallback(evutil_socket_t fd, short event, void* arg)
-    {
-        auto pthis = static_cast<Worker*>(arg);
-        event_base_loopbreak(pthis->m_base);
-    }
-
-    void RunTask()
-    {
-        while(auto task = m_ctx->Get())
-        {
-            m_task_vect.emplace_back(task);
-            task->SetTask(task->CoHandle());
-        }
-    }
-
-    std::shared_ptr<Context> m_ctx;
-    event_base* m_base = nullptr;
-    event* m_list_ev = nullptr;
-    event* m_quit_ev = nullptr;
-    int32_t m_quit_fd = -1;
-    std::vector<std::shared_ptr<CoTask>> m_task_vect;
-};
-
-class Scheduler
-{
-public:
-    Scheduler(size_t worker_size)
-    {
-    }
-
-    void AddTask(std::shared_ptr<CoTask> task)
-    {
-    }
-private:
-    std::vector<std::jthread> m_worker;
 };
 
 int main()
 {
-    std::cout << "Hello, World!" << std::endl;
+    Scheduler scheduler;
+    scheduler.AddTask(std::make_shared<SleepTask>());
+    sleep(4);
     return 0;
 }
