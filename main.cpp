@@ -1,8 +1,8 @@
 #include <iostream>
-#include <memory>
 #include <latch>
-#include "task.h"
+#include <memory>
 #include "sleep.h"
+#include "task.h"
 
 class SleepTask : public CoTask
 {

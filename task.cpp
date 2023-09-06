@@ -1,6 +1,6 @@
-#include <utility>
 #include "task.h"
-
+#include <utility>
+#include <cassert>
 
 Task TaskPromise::get_return_object()
 {
@@ -12,7 +12,7 @@ std::suspend_never TaskPromise::initial_suspend()
     return {};
 }
 
-std::suspend_always TaskPromise::final_suspend() noexcept
+std::suspend_never TaskPromise::final_suspend() noexcept
 {
     return {};
 }
@@ -27,39 +27,27 @@ void TaskPromise::return_void()
 
 void TaskPromise::unhandled_exception() {}
 
-
-Task::Task(TaskPromise *promise) noexcept
+Task::Task(TaskPromise* promise) noexcept
     : m_promise(promise)
-    , m_handle(std::coroutine_handle<TaskPromise>::from_promise(*promise))
 {}
 
-Task::~Task() {}
+Task::~Task()
+{
+}
 
-Task::Task(Task &&task) noexcept
+Task::Task(Task&& task) noexcept
     : m_promise(std::exchange(task.m_promise, nullptr))
-    , m_handle(std::exchange(task.m_handle, {}))
 {}
 
-Task &Task::operator=(Task &&task) noexcept
+Task& Task::operator=(Task&& task) noexcept
 {
     m_promise = task.m_promise;
-    m_handle = task.m_handle;
     return *this;
 }
 
-void Task::Resume()
+bool Task::await_ready()
 {
-    m_handle.resume();
-}
-
-bool Task::Done() const
-{
-    return m_handle.done();
-}
-
-bool Task::await_ready() const
-{
-    return Done();
+    std::coroutine_handle<TaskPromise>::from_promise(*m_promise).done();
 }
 
 void Task::await_suspend(std::coroutine_handle<> handle)

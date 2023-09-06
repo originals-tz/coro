@@ -1,17 +1,17 @@
 #ifndef COTASK_SCHEDULER_H
 #define COTASK_SCHEDULER_H
 
-#include "task.h"
-#include <optional>
-#include <sys/eventfd.h>
 #include <fcntl.h>
+#include <sys/eventfd.h>
 #include <unistd.h>
-#include <memory>
-#include <thread>
 #include <latch>
 #include <list>
-#include "cassert"
+#include <memory>
+#include <optional>
+#include <thread>
 #include <vector>
+#include "cassert"
+#include "task.h"
 
 class CoTask
 {
@@ -19,7 +19,7 @@ public:
     CoTask() = default;
     virtual ~CoTask() = default;
     virtual Task CoHandle() = 0;
-    void SetTask(Task&& task) {m_task = std::move(task);}
+
 private:
     std::optional<Task> m_task;
 };
@@ -42,11 +42,7 @@ struct Context
         m_task_list_fd = GetFD();
     }
 
-    ~Context()
-    {
-        close(m_task_list_fd);
-    }
-
+    ~Context() { close(m_task_list_fd); }
 
     void Add(const std::shared_ptr<CoTask>& task)
     {
@@ -104,17 +100,14 @@ public:
         int val = event_base_dispatch(m_base);
         assert(val != -1);
 
-        event_base_free(m_base);
         event_free(m_list_ev);
         event_free(m_quit_ev);
+        event_base_free(m_base);
         close(m_quit_fd);
         m_ctx->m_latch.count_down();
     }
 
-    void Stop()
-    {
-        eventfd_write(m_quit_fd, eventfd_t(1));
-    }
+    void Stop() { eventfd_write(m_quit_fd, eventfd_t(1)); }
 
     static event_base* EventBase(event_base* base = nullptr)
     {
@@ -125,8 +118,8 @@ public:
         }
         return m_base;
     }
-private:
 
+private:
     static void NewTaskEventCallback(evutil_socket_t fd, short event, void* arg)
     {
         auto pthis = static_cast<Worker*>(arg);
@@ -141,10 +134,10 @@ private:
 
     void RunTask()
     {
-        while(auto task = m_ctx->Get())
+        while (auto task = m_ctx->Get())
         {
             m_task_vect.emplace_back(task);
-            task->SetTask(task->CoHandle());
+            task->CoHandle();
         }
     }
 
@@ -175,10 +168,8 @@ public:
         m_ctx->m_latch.wait();
     }
 
-    void AddTask(const std::shared_ptr<CoTask>& task)
-    {
-        m_ctx->Add(task);
-    }
+    void AddTask(const std::shared_ptr<CoTask>& task) { m_ctx->Add(task); }
+
 private:
     std::shared_ptr<Context> m_ctx;
     std::list<Worker> m_worker;
