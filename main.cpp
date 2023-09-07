@@ -31,10 +31,43 @@ public:
     }
 };
 
-int main()
+void TestSleep(int i)
 {
     Manager mgr;
     mgr.AddTask(std::make_shared<SleepTask>());
-    sleep(4);
+    sleep(i);
+}
+
+class Test1 : public CoTask
+{
+public:
+    Task CoHandle() override
+    {
+        std::cout << "test1" << std::endl;
+        co_await TestSub1();
+        std::cout << "endtest" << std::endl;
+    }
+
+    Task TestSub1()
+    {
+        std::cout << "test sub 1" << std::endl;
+        co_await std::suspend_always();
+        std::cout << "end sub 1" << std::endl;
+    }
+};
+
+void TestTask()
+{
+    Test1 test;
+    auto task = test.CoHandle();
+    task.Resume();
+}
+
+int main()
+{
+    TestSleep(1);
+    TestSleep(3);
+    TestSleep(4);
+    TestTask();
     return 0;
 }

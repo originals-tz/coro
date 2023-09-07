@@ -1,10 +1,12 @@
 #include "task.h"
+#include <fmt/format.h>
 #include <cassert>
+#include <iostream>
 #include <utility>
 
 Task TaskPromise::get_return_object()
 {
-    return Task(this);
+    return Task(std::coroutine_handle<TaskPromise>::from_promise(*this));
 }
 
 std::suspend_never TaskPromise::initial_suspend()
@@ -12,7 +14,7 @@ std::suspend_never TaskPromise::initial_suspend()
     return {};
 }
 
-std::suspend_never TaskPromise::final_suspend() noexcept
+std::suspend_always TaskPromise::final_suspend() noexcept
 {
     return {};
 }
@@ -27,30 +29,40 @@ void TaskPromise::return_void()
 
 void TaskPromise::unhandled_exception() {}
 
-Task::Task(TaskPromise* promise) noexcept
-    : m_promise(promise)
+TaskAwaiter TaskPromise::await_transform(Task&& task)
+{
+    return TaskAwaiter(std::move(task));
+}
+
+Task::Task(std::coroutine_handle<TaskPromise> handle) noexcept
+    : m_handle(handle)
 {}
 
 Task::~Task() {}
 
 Task::Task(Task&& task) noexcept
-    : m_promise(std::exchange(task.m_promise, nullptr))
+    : m_handle(std::exchange(task.m_handle, nullptr))
 {}
 
 Task& Task::operator=(Task&& task) noexcept
 {
-    m_promise = task.m_promise;
+    m_handle = std::exchange(task.m_handle, nullptr);
     return *this;
 }
 
-bool Task::await_ready()
+void Task::Finally(std::coroutine_handle<> handle)
 {
-    std::coroutine_handle<TaskPromise>::from_promise(*m_promise).done();
-}
-
-void Task::await_suspend(std::coroutine_handle<> handle)
-{
-    m_promise->m_parent = handle;
+    m_handle.promise().m_parent = handle;
 }
 
 void Task::await_resume() {}
+
+bool Task::IsDone()
+{
+    m_handle.done();
+}
+
+void Task::Resume()
+{
+    m_handle.resume();
+}
