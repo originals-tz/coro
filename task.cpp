@@ -15,7 +15,6 @@ std::suspend_never TaskPromise::initial_suspend()
 
 std::suspend_always TaskPromise::final_suspend() noexcept
 {
-    m_is_final = true;
     return {};
 }
 

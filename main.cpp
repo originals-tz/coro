@@ -41,53 +41,8 @@ void TestSleep(int i)
     sleep(i + 1);
 }
 
-class Test1 : public CoTask
-{
-public:
-    Task CoHandle() override
-    {
-        std::cout << "test1" << std::endl;
-        co_await TestSub1();
-        std::cout << "endtest" << std::endl;
-    }
-
-    Task TestSub1()
-    {
-        std::cout << "test sub 1" << std::endl;
-        co_await std::suspend_always();
-        std::cout << "end sub 1" << std::endl;
-    }
-};
-
-class DoNothing : public CoTask
-{
-public:
-    Task CoHandle() override
-    {
-        std::cout << "do nothing" << std::endl;
-        co_return;
-    }
-};
-
-void TestTask()
-{
-    Test1 test;
-    auto task = test.CoHandle();
-    task.Resume();
-}
-
-void Test()
-{
-    Manager mgr;
-    mgr.AddTask(std::make_shared<DoNothing>());
-    sleep(1);
-}
-
 int main()
 {
-    //    Test();
     TestSleep(1);
-    //    TestTask();
-    //    TestSleep(1);
     return 0;
 }

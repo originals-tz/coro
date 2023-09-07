@@ -14,7 +14,7 @@ public:
 
     bool await_ready() const { return false; }
 
-    void await_suspend(std::coroutine_handle<> handle)
+    void await_suspend(std::coroutine_handle<TaskPromise> handle)
     {
         auto exec = Executor::ThreadLocalInstance();
         assert(exec);
@@ -31,8 +31,12 @@ private:
     static void OnTimeout(evutil_socket_t, short, void* arg)
     {
         auto pthis = static_cast<CoSleep*>(arg);
-        auto handle = std::coroutine_handle<>::from_address(pthis->m_handler_address);
+        auto handle = std::coroutine_handle<TaskPromise>::from_address(pthis->m_handler_address);
         handle.resume();
+        if (handle.done())
+        {
+            handle.promise().Prev();
+        }
     }
 
     int32_t m_duration = 0;

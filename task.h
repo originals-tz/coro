@@ -28,8 +28,20 @@ struct TaskPromise
         {
             handle.resume();
         }
+        else
+        {
+            m_prev = handle;
+        }
+    }
+    void Prev()
+    {
+        if (m_prev)
+        {
+            m_prev.resume();
+        }
     }
     bool m_is_final = false;
+    std::coroutine_handle<> m_prev;
 };
 
 class Task
