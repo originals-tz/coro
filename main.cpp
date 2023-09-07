@@ -33,8 +33,8 @@ public:
 
 int main()
 {
-    Scheduler scheduler;
-    scheduler.AddTask(std::make_shared<SleepTask>());
+    Manager mgr;
+    mgr.AddTask(std::make_shared<SleepTask>());
     sleep(4);
     return 0;
 }

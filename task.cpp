@@ -1,6 +1,6 @@
 #include "task.h"
-#include <utility>
 #include <cassert>
+#include <utility>
 
 Task TaskPromise::get_return_object()
 {
@@ -31,9 +31,7 @@ Task::Task(TaskPromise* promise) noexcept
     : m_promise(promise)
 {}
 
-Task::~Task()
-{
-}
+Task::~Task() {}
 
 Task::Task(Task&& task) noexcept
     : m_promise(std::exchange(task.m_promise, nullptr))

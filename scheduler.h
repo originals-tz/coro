@@ -17,7 +17,9 @@ class CoTask
 {
 public:
     CoTask() = default;
+
     virtual ~CoTask() = default;
+
     virtual Task CoHandle() = 0;
 
 private:
@@ -69,16 +71,16 @@ struct Context
     std::list<std::shared_ptr<CoTask>> m_task_list;
 };
 
-class Worker
+class Executor
 {
 public:
-    explicit Worker(std::shared_ptr<Context> ctx)
+    explicit Executor(std::shared_ptr<Context> ctx)
         : m_ctx(std::move(ctx))
     {
-        m_thread = std::make_shared<std::jthread>(&Worker::Run, this);
+        m_thread = std::make_shared<std::jthread>(&Executor::Run, this);
     }
 
-    ~Worker()
+    ~Executor()
     {
         if (m_thread->joinable())
         {
@@ -89,7 +91,7 @@ public:
     void Run()
     {
         m_base = event_base_new();
-        EventBase(m_base);
+        ThreadLocalInstance(this);
         m_list_ev = event_new(m_base, m_ctx->m_task_list_fd, EV_READ | EV_PERSIST, NewTaskEventCallback, this);
         event_add(m_list_ev, nullptr);
 
@@ -102,6 +104,13 @@ public:
 
         event_free(m_list_ev);
         event_free(m_quit_ev);
+        for (auto& ev : m_ev_list)
+        {
+            if (ev)
+            {
+                event_free(ev);
+            }
+        }
         event_base_free(m_base);
         close(m_quit_fd);
         m_ctx->m_latch.count_down();
@@ -109,26 +118,30 @@ public:
 
     void Stop() { eventfd_write(m_quit_fd, eventfd_t(1)); }
 
-    static event_base* EventBase(event_base* base = nullptr)
+    static Executor* ThreadLocalInstance(Executor* ptr = nullptr)
     {
-        static thread_local event_base* m_base = nullptr;
-        if (base != nullptr)
+        static thread_local Executor* exec = nullptr;
+        if (ptr != nullptr)
         {
-            m_base = base;
+            exec = ptr;
         }
-        return m_base;
+        return exec;
     }
+
+    event_base* GetEventBase() { return m_base; }
+
+    void AutoFree(event* ev) { m_ev_list.emplace_back(ev); }
 
 private:
     static void NewTaskEventCallback(evutil_socket_t fd, short event, void* arg)
     {
-        auto pthis = static_cast<Worker*>(arg);
+        auto pthis = static_cast<Executor*>(arg);
         pthis->RunTask();
     }
 
     static void QuitCallback(evutil_socket_t fd, short event, void* arg)
     {
-        auto pthis = static_cast<Worker*>(arg);
+        auto pthis = static_cast<Executor*>(arg);
         event_base_loopbreak(pthis->m_base);
     }
 
@@ -148,22 +161,23 @@ private:
     int32_t m_quit_fd = -1;
     std::vector<std::shared_ptr<CoTask>> m_task_vect;
     std::shared_ptr<std::jthread> m_thread;
+    std::vector<event*> m_ev_list;
 };
 
-class Scheduler
+class Manager
 {
 public:
-    Scheduler()
+    Manager()
     {
         m_ctx = std::make_shared<Context>(1);
-        m_worker.emplace_back(m_ctx);
+        m_executor_list.emplace_back(m_ctx);
     }
 
-    ~Scheduler()
+    ~Manager()
     {
-        for (auto& worker : m_worker)
+        for (auto& exectuor : m_executor_list)
         {
-            worker.Stop();
+            exectuor.Stop();
         }
         m_ctx->m_latch.wait();
     }
@@ -172,7 +186,7 @@ public:
 
 private:
     std::shared_ptr<Context> m_ctx;
-    std::list<Worker> m_worker;
+    std::list<Executor> m_executor_list;
 };
 
 #endif  // COTASK_SCHEDULER_H
