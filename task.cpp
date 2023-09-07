@@ -50,13 +50,6 @@ Task& Task::operator=(Task&& task) noexcept
     return *this;
 }
 
-void Task::Finally(std::coroutine_handle<> handle)
-{
-    m_handle.promise().m_parent = handle;
-}
-
-void Task::await_resume() {}
-
 bool Task::IsDone()
 {
     m_handle.done();
@@ -66,3 +59,26 @@ void Task::Resume()
 {
     m_handle.resume();
 }
+
+void Task::Finally(std::coroutine_handle<> handle)
+{
+    m_handle.promise().m_parent = handle;
+}
+
+TaskAwaiter::TaskAwaiter(Task&& task) noexcept
+    : task(std::move(task))
+{}
+
+TaskAwaiter::TaskAwaiter(TaskAwaiter&& completion) noexcept
+    : task(std::exchange(completion.task, Task(std::coroutine_handle<TaskPromise>())))
+{}
+
+bool TaskAwaiter::await_ready() const noexcept
+{
+    return false;
+}
+void TaskAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
+{
+    task.Finally(handle);
+}
+void TaskAwaiter::await_resume() noexcept {}
