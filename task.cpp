@@ -1,5 +1,4 @@
 #include "task.h"
-#include <fmt/format.h>
 #include <cassert>
 #include <iostream>
 #include <utility>
@@ -16,16 +15,11 @@ std::suspend_never TaskPromise::initial_suspend()
 
 std::suspend_always TaskPromise::final_suspend() noexcept
 {
+    m_is_final = true;
     return {};
 }
 
-void TaskPromise::return_void()
-{
-    if (m_parent)
-    {
-        m_parent.resume();
-    }
-}
+void TaskPromise::return_void() {}
 
 void TaskPromise::unhandled_exception() {}
 
@@ -38,7 +32,13 @@ Task::Task(std::coroutine_handle<TaskPromise> handle) noexcept
     : m_handle(handle)
 {}
 
-Task::~Task() {}
+Task::~Task()
+{
+    if (m_handle)
+    {
+        m_handle.destroy();
+    }
+}
 
 Task::Task(Task&& task) noexcept
     : m_handle(std::exchange(task.m_handle, nullptr))
@@ -52,7 +52,7 @@ Task& Task::operator=(Task&& task) noexcept
 
 bool Task::IsDone()
 {
-    m_handle.done();
+    return m_handle.done();
 }
 
 void Task::Resume()
@@ -62,15 +62,11 @@ void Task::Resume()
 
 void Task::Finally(std::coroutine_handle<> handle)
 {
-    m_handle.promise().m_parent = handle;
+    m_handle.promise().Complete(handle);
 }
 
 TaskAwaiter::TaskAwaiter(Task&& task) noexcept
-    : task(std::move(task))
-{}
-
-TaskAwaiter::TaskAwaiter(TaskAwaiter&& completion) noexcept
-    : task(std::exchange(completion.task, Task(std::coroutine_handle<TaskPromise>())))
+    : m_task(std::move(task))
 {}
 
 bool TaskAwaiter::await_ready() const noexcept
@@ -79,6 +75,6 @@ bool TaskAwaiter::await_ready() const noexcept
 }
 void TaskAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
 {
-    task.Finally(handle);
+    m_task.Finally(handle);
 }
 void TaskAwaiter::await_resume() noexcept {}

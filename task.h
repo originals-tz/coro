@@ -3,6 +3,7 @@
 
 #include <evdns.h>
 #include <coroutine>
+#include <iostream>
 #include <utility>
 
 class Task;
@@ -21,14 +22,21 @@ struct TaskPromise
     {
         return task;
     }
-    std::coroutine_handle<> m_parent;
+    void Complete(std::coroutine_handle<> handle)
+    {
+        if (handle && m_is_final)
+        {
+            handle.resume();
+        }
+    }
+    bool m_is_final = false;
 };
 
 class Task
 {
 public:
     using promise_type = TaskPromise;
-    explicit Task(std::coroutine_handle<TaskPromise> handle) noexcept;
+    Task(std::coroutine_handle<TaskPromise> handle) noexcept;
     ~Task();
 
     Task(Task&) = delete;
@@ -41,7 +49,6 @@ public:
     void Resume();
     void Finally(std::coroutine_handle<> handle);
 
-private:
     std::coroutine_handle<TaskPromise> m_handle;
 };
 
@@ -49,7 +56,6 @@ class TaskAwaiter
 {
 public:
     explicit TaskAwaiter(Task&& task) noexcept;
-    TaskAwaiter(TaskAwaiter&& completion) noexcept;
     TaskAwaiter(TaskAwaiter&) = delete;
     TaskAwaiter& operator=(TaskAwaiter&) = delete;
     bool await_ready() const noexcept;
@@ -57,7 +63,7 @@ public:
     void await_resume() noexcept;
 
 private:
-    Task task;
+    Task m_task;
 };
 
 #endif  // COTASK_TASK_H

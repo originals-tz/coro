@@ -113,8 +113,8 @@ void Executor::RunTask()
 {
     while (auto task = m_ctx->Get())
     {
+        task->Run();
         m_task_vect.emplace_back(task);
-        task->CoHandle();
     }
 }
 

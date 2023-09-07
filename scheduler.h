@@ -12,6 +12,7 @@
 #include <vector>
 #include "cassert"
 #include "common.h"
+#include "iostream"
 #include "task.h"
 
 class CoTask
@@ -20,6 +21,11 @@ public:
     CoTask() = default;
     virtual ~CoTask() = default;
     virtual Task CoHandle() = 0;
+    void Run()
+    {
+        m_task = CoHandle();
+    }
+    std::optional<Task> m_task;
 };
 
 struct Context
@@ -45,6 +51,7 @@ public:
     static Executor* ThreadLocalInstance(Executor* ptr = nullptr);
     event_base* GetEventBase();
     void AutoFree(event* ev);
+
 private:
     static void NewTaskEventCallback(evutil_socket_t fd, short event, void* arg);
     static void QuitCallback(evutil_socket_t fd, short event, void* arg);
