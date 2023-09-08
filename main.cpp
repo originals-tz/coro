@@ -3,6 +3,7 @@
 #include <memory>
 #include "sleep.h"
 #include "task.h"
+#include "db.h"
 
 class SleepTask : public CoTask
 {
@@ -54,16 +55,32 @@ public:
     }
 };
 
-void TestSleep(int i)
+class TestMYSQL : public CoTask
+{
+public:
+    Task CoHandle() override
+    {
+        DB db("", 3309, "", "", "");
+        std::cout << "begin" << std::endl;
+        co_await db.Connect();
+        co_await db.Query("select * from secumain limit 10000");
+        co_await db.CoStoreResult();
+        std::cout << "end" << std::endl;
+        co_return;
+    }
+};
+
+void Test(int i)
 {
     Manager mgr;
 //    mgr.AddTask(std::make_shared<SleepTask>());
-    mgr.AddTask(std::make_shared<Noting>());
-    sleep(2);
+    mgr.AddTask(std::make_shared<TestMYSQL>());
+    sleep(6);
 }
 
 int main()
 {
-    TestSleep(1);
+    mysql_library_init(0, nullptr, nullptr);
+    Test(1);
     return 0;
 }
