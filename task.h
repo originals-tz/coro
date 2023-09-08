@@ -5,6 +5,7 @@
 #include <coroutine>
 #include <iostream>
 #include <utility>
+#include <functional>
 
 class Task;
 class TaskAwaiter;
@@ -22,24 +23,11 @@ struct TaskPromise
     {
         return task;
     }
-    void Complete(std::coroutine_handle<> handle)
-    {
-        if (handle && m_is_final)
-        {
-            handle.resume();
-        }
-        else
-        {
-            m_prev = handle;
-        }
-    }
-    void Prev()
-    {
-        if (m_prev)
-        {
-            m_prev.resume();
-        }
-    }
+
+    void Complete(std::coroutine_handle<> handle);
+    bool Prev();
+
+    std::function<void()> m_deleter;
     bool m_is_final = false;
     std::coroutine_handle<> m_prev;
 };

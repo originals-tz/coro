@@ -56,6 +56,7 @@ void Executor::Run()
     event_add(m_quit_ev, nullptr);
 
     int val = event_base_dispatch(m_base);
+    std::cout << "未完成任务数:" << m_task_vect.size() << std::endl;
     assert(val != -1);
 
     event_free(m_list_ev);
@@ -87,6 +88,24 @@ Executor* Executor::ThreadLocalInstance(Executor* ptr)
     return exec;
 }
 
+void Executor::ResumeCoroutine(std::coroutine_handle<TaskPromise>& handle)
+{
+    if (!handle) return;
+
+    auto& promise = handle.promise();
+    handle.resume();
+    if (!handle.done())
+    {
+        return;
+    }
+
+    if (!promise.Prev())
+    {
+        auto del = promise.m_deleter;
+        del();
+    }
+}
+
 event_base* Executor::GetEventBase()
 {
     return m_base;
@@ -113,8 +132,16 @@ void Executor::RunTask()
 {
     while (auto task = m_ctx->Get())
     {
-        task->Run();
-        m_task_vect.emplace_back(task);
+        if (!task->Run())
+        {
+            void* ptr = task.get();
+            m_task_vect[ptr] = task;
+            task->SetDeleter([this, ptr](){m_task_vect.erase(ptr);});
+        }
+        else
+        {
+            std::cout << "任务已完成" << std::endl;
+        }
     }
 }
 

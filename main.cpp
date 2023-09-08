@@ -34,11 +34,27 @@ public:
     }
 };
 
+class Noting : public CoTask
+{
+public:
+    Task CoHandle() override
+    {
+        co_await Test1();
+        co_return;
+    }
+
+    Task Test1()
+    {
+        co_return;
+    }
+};
+
 void TestSleep(int i)
 {
     Manager mgr;
     mgr.AddTask(std::make_shared<SleepTask>());
-    sleep(i + 1);
+    mgr.AddTask(std::make_shared<Noting>());
+    sleep(i + 4);
 }
 
 int main()

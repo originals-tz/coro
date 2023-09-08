@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <latch>
 #include <list>
+#include <unordered_map>
 #include <memory>
 #include <optional>
 #include <thread>
@@ -14,6 +15,8 @@
 #include "common.h"
 #include "iostream"
 #include "task.h"
+#include <functional>
+
 
 class CoTask
 {
@@ -21,10 +24,17 @@ public:
     CoTask() = default;
     virtual ~CoTask() = default;
     virtual Task CoHandle() = 0;
-    void Run()
+    bool Run()
     {
         m_task = CoHandle();
+        return m_task->IsDone();
     }
+
+    void SetDeleter(std::function<void()> del)
+    {
+        m_task->m_handle.promise().m_deleter = del;
+    }
+
     std::optional<Task> m_task;
 };
 
@@ -49,6 +59,7 @@ public:
     void Run();
     void Stop();
     static Executor* ThreadLocalInstance(Executor* ptr = nullptr);
+    static void ResumeCoroutine(std::coroutine_handle<TaskPromise>& handle);
     event_base* GetEventBase();
     void AutoFree(event* ev);
 
@@ -62,7 +73,7 @@ private:
     event* m_list_ev = nullptr;
     event* m_quit_ev = nullptr;
     int32_t m_quit_fd = -1;
-    std::vector<std::shared_ptr<CoTask>> m_task_vect;
+    std::unordered_map<void*, std::shared_ptr<CoTask>> m_task_vect;
     std::shared_ptr<std::jthread> m_thread;
     std::vector<event*> m_ev_list;
 };

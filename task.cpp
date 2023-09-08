@@ -15,12 +15,35 @@ std::suspend_never TaskPromise::initial_suspend()
 
 std::suspend_always TaskPromise::final_suspend() noexcept
 {
+    m_is_final = true;
     return {};
 }
 
 void TaskPromise::return_void() {}
 
 void TaskPromise::unhandled_exception() {}
+
+void TaskPromise::Complete(std::coroutine_handle<> handle)
+{
+    if (handle && m_is_final)
+    {
+        handle.resume();
+    }
+    else
+    {
+        m_prev = handle;
+    }
+}
+
+bool TaskPromise::Prev()
+{
+    if (m_prev)
+    {
+        m_prev.resume();
+        return true;
+    }
+    return false;
+}
 
 TaskAwaiter TaskPromise::await_transform(Task&& task)
 {

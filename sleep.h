@@ -19,7 +19,7 @@ public:
         auto exec = Executor::ThreadLocalInstance();
         assert(exec);
         timeval tv{.tv_sec = m_duration, .tv_usec = 0};
-        m_handler_address = handle.address();
+        m_handle = handle;
         auto ev = evtimer_new(exec->GetEventBase(), OnTimeout, this);
         evtimer_add(ev, &tv);
         exec->AutoFree(ev);
@@ -31,16 +31,11 @@ private:
     static void OnTimeout(evutil_socket_t, short, void* arg)
     {
         auto pthis = static_cast<CoSleep*>(arg);
-        auto handle = std::coroutine_handle<TaskPromise>::from_address(pthis->m_handler_address);
-        handle.resume();
-        if (handle.done())
-        {
-            handle.promise().Prev();
-        }
+        Executor::ResumeCoroutine(pthis->m_handle);
     }
 
     int32_t m_duration = 0;
-    void* m_handler_address = nullptr;
+    std::coroutine_handle<TaskPromise> m_handle;
 };
 
 #endif  // COTASK_SLEEP_H
