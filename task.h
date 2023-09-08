@@ -24,12 +24,12 @@ struct TaskPromise
         return task;
     }
 
-    void Complete(std::coroutine_handle<> handle);
+    void Complete(std::coroutine_handle<TaskPromise> handle);
     bool Prev();
 
     std::function<void()> m_deleter;
     bool m_is_final = false;
-    std::coroutine_handle<> m_prev;
+    std::coroutine_handle<TaskPromise> m_prev;
 };
 
 class Task
@@ -47,7 +47,7 @@ public:
 
     bool IsDone();
     void Resume();
-    void Finally(std::coroutine_handle<> handle);
+    void Finally(std::coroutine_handle<TaskPromise> handle);
 
     std::coroutine_handle<TaskPromise> m_handle;
 };
@@ -59,7 +59,7 @@ public:
     TaskAwaiter(TaskAwaiter&) = delete;
     TaskAwaiter& operator=(TaskAwaiter&) = delete;
     bool await_ready() const noexcept;
-    void await_suspend(std::coroutine_handle<> handle) noexcept;
+    void await_suspend(std::coroutine_handle<TaskPromise> handle) noexcept;
     void await_resume() noexcept;
 
 private:

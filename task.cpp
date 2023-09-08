@@ -23,7 +23,7 @@ void TaskPromise::return_void() {}
 
 void TaskPromise::unhandled_exception() {}
 
-void TaskPromise::Complete(std::coroutine_handle<> handle)
+void TaskPromise::Complete(std::coroutine_handle<TaskPromise> handle)
 {
     if (handle && m_is_final)
     {
@@ -82,7 +82,7 @@ void Task::Resume()
     m_handle.resume();
 }
 
-void Task::Finally(std::coroutine_handle<> handle)
+void Task::Finally(std::coroutine_handle<TaskPromise> handle)
 {
     m_handle.promise().Complete(handle);
 }
@@ -95,7 +95,7 @@ bool TaskAwaiter::await_ready() const noexcept
 {
     return false;
 }
-void TaskAwaiter::await_suspend(std::coroutine_handle<> handle) noexcept
+void TaskAwaiter::await_suspend(std::coroutine_handle<TaskPromise> handle) noexcept
 {
     m_task.Finally(handle);
 }

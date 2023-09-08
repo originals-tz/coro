@@ -19,8 +19,8 @@ public:
     Task Test2()
     {
         std::cout << "start2" << std::endl;
-        co_await Test3();
-        co_await CoSleep(1);
+//        co_await Test3();
+//        co_await CoSleep(1);
         std::cout << "end2" << std::endl;
         co_return;
     }
@@ -39,12 +39,17 @@ class Noting : public CoTask
 public:
     Task CoHandle() override
     {
+        std::cout << "cohandle begin" << std::endl;
         co_await Test1();
+        std::cout << "cohandle end" << std::endl;
         co_return;
     }
 
     Task Test1()
     {
+        std::cout << "test1 begin" << std::endl;
+        co_await CoSleep(1);
+        std::cout << "test2 begin" << std::endl;
         co_return;
     }
 };
@@ -52,9 +57,9 @@ public:
 void TestSleep(int i)
 {
     Manager mgr;
-    mgr.AddTask(std::make_shared<SleepTask>());
+//    mgr.AddTask(std::make_shared<SleepTask>());
     mgr.AddTask(std::make_shared<Noting>());
-    sleep(i + 4);
+    sleep(2);
 }
 
 int main()

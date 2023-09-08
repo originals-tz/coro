@@ -99,10 +99,26 @@ void Executor::ResumeCoroutine(std::coroutine_handle<TaskPromise>& handle)
         return;
     }
 
-    if (!promise.Prev())
+    auto cur = promise.m_prev;
+    while(cur)
     {
-        auto del = promise.m_deleter;
-        del();
+        // 当前协程已执行完毕, 恢复上一个协程
+        cur.resume();
+        if (!cur.done())
+        {
+            break;
+        }
+
+        //执行完毕，再切换到上一层
+        auto& cur_promise = cur.promise();
+        auto del = cur_promise.m_deleter;
+        cur = cur_promise.m_prev;
+
+        // 整个协程的嵌套执行完毕，清空相关数据
+        if (!cur && del)
+        {
+            del();
+        }
     }
 }
 
