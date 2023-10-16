@@ -5,17 +5,17 @@
 class DB
 {
 public:
-    DB(std::string_view ip, int32_t port, std::string_view username, std::string_view pass, std::string_view default_db)
-        : m_ip(ip)
-        , m_port(port)
-        , m_username(username)
-        , m_pass(pass)
-        , m_default_db(default_db)
+    DB()
     {
         m_db = mysql_init(nullptr);
     }
 
-    Task Connect()
+    ~DB()
+    {
+        mysql_close(m_db);
+    }
+
+    Task Connect(std::string_view ip, int32_t port, std::string_view username, std::string_view pass, std::string_view default_db)
     {
         // 运行状态
         net_async_status s = NET_ASYNC_COMPLETE;
@@ -32,7 +32,7 @@ public:
         while(iscontinue)
         {
             check_count++;
-            s  = mysql_real_connect_nonblocking(m_db, m_ip.data(), m_username.data(), m_pass.data(), m_default_db.data(), m_port, nullptr, 0);
+            s  = mysql_real_connect_nonblocking(m_db, ip.data(), username.data(), pass.data(), default_db.data(), port, nullptr, 0);
             switch (s)
             {
                 case NET_ASYNC_COMPLETE:
@@ -64,7 +64,7 @@ public:
                 default:
                 {
                     // 网络错误， 做最大努力的重试，重试次数为 maxretry
-                    iscontinue = (retry++ < maxretry) ? true : false;
+                    iscontinue = (retry++ < maxretry);
                     if (iscontinue)
                     {
                         std::cout << "发生网络错误" << std::endl;
@@ -123,7 +123,7 @@ public:
                 }
                 default:
                     // 网络错误， 做最大努力的重试，重试次数为 maxretry
-                    iscontinue = (retry++ < 3) ? true : false;
+                    iscontinue = (retry++ < 3);
                     // 通过ping，触发 mysql 自身的重连处理机制, 试图修正一些网络不稳定的情况
                     break;
             }
@@ -171,11 +171,6 @@ public:
         co_return ;
     }
 private:
-    std::string_view m_ip;
-    int32_t m_port;
-    std::string_view m_username;
-    std::string_view m_pass;
-    std::string_view m_default_db;
     //! MYSql 句柄
     MYSQL* m_db;
 };

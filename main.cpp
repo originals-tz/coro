@@ -20,8 +20,8 @@ public:
     Task Test2()
     {
         std::cout << "start2" << std::endl;
-//        co_await Test3();
-//        co_await CoSleep(1);
+        co_await Test3();
+        co_await CoSleep(1);
         std::cout << "end2" << std::endl;
         co_return;
     }
@@ -60,12 +60,12 @@ class TestMYSQL : public CoTask
 public:
     Task CoHandle() override
     {
-        DB db("", 3309, "", "", "");
-        std::cout << "begin" << std::endl;
-        co_await db.Connect();
-        co_await db.Query("select * from secumain limit 10000");
-        co_await db.CoStoreResult();
-        std::cout << "end" << std::endl;
+//        DB db("", 3309, "", "", "");
+//        std::cout << "begin" << std::endl;
+//        co_await db.Connect();
+//        co_await db.Query("select * from secumain limit 10000");
+//        co_await db.CoStoreResult();
+//        std::cout << "end" << std::endl;
         co_return;
     }
 };
@@ -73,8 +73,8 @@ public:
 void Test(int i)
 {
     Manager mgr;
-//    mgr.AddTask(std::make_shared<SleepTask>());
-    mgr.AddTask(std::make_shared<TestMYSQL>());
+    mgr.AddTask(std::make_shared<SleepTask>());
+//    mgr.AddTask(std::make_shared<TestMYSQL>());
     sleep(6);
 }
 

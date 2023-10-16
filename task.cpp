@@ -89,14 +89,17 @@ void Task::Finally(std::coroutine_handle<TaskPromise> handle)
 
 TaskAwaiter::TaskAwaiter(Task&& task) noexcept
     : m_task(std::move(task))
-{}
+{
+}
 
 bool TaskAwaiter::await_ready() const noexcept
 {
     return false;
 }
+
 void TaskAwaiter::await_suspend(std::coroutine_handle<TaskPromise> handle) noexcept
 {
     m_task.Finally(handle);
 }
+
 void TaskAwaiter::await_resume() noexcept {}

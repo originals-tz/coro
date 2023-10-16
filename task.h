@@ -3,9 +3,10 @@
 
 #include <evdns.h>
 #include <coroutine>
-#include <iostream>
-#include <utility>
 #include <functional>
+#include <iostream>
+#include <queue>
+#include <utility>
 
 class Task;
 class TaskAwaiter;
