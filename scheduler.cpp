@@ -100,6 +100,11 @@ void Executor::ResumeCoroutine(std::coroutine_handle<TaskPromise>& handle)
     }
 
     auto cur = promise.m_prev;
+    if (!cur && promise.m_deleter)
+    {
+        promise.m_deleter();
+        return;
+    }
     while(cur)
     {
         // 当前协程已执行完毕, 恢复上一个协程
