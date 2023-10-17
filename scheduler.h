@@ -4,38 +4,34 @@
 #include <fcntl.h>
 #include <sys/eventfd.h>
 #include <unistd.h>
+#include <functional>
 #include <latch>
 #include <list>
-#include <unordered_map>
 #include <memory>
 #include <optional>
 #include <thread>
+#include <unordered_map>
 #include <vector>
 #include "cassert"
 #include "common.h"
 #include "iostream"
 #include "task.h"
-#include <functional>
-
 
 class CoTask
 {
 public:
     CoTask() = default;
     virtual ~CoTask() = default;
-    virtual Task CoHandle() = 0;
+    virtual Task<void> CoHandle() = 0;
     bool Run()
     {
         m_task = CoHandle();
         return m_task->IsDone();
     }
 
-    void SetDeleter(std::function<void()> del)
-    {
-        m_task->m_handle.promise().m_deleter = del;
-    }
+    void SetDeleter(std::function<void()> del) { m_task->m_handle.promise().m_deleter = del; }
 
-    std::optional<Task> m_task;
+    std::optional<Task<void>> m_task;
 };
 
 struct Context
@@ -59,7 +55,37 @@ public:
     void Run();
     void Stop();
     static Executor* ThreadLocalInstance(Executor* ptr = nullptr);
-    static void ResumeCoroutine(std::coroutine_handle<TaskPromise>& handle);
+    template <typename T>
+    static void ResumeCoroutine(T& handle)
+    {
+        if (!handle)
+            return;
+
+        auto& promise = handle.promise();
+        handle.resume();
+        if (!handle.done())
+        {
+            return;
+        }
+
+        auto cur = std::move(promise.m_prev);
+        if (!cur && promise.m_deleter)
+        {
+            promise.m_deleter();
+            return;
+        }
+        while (cur)
+        {
+            // 当前协程已执行完毕, 恢复上一个协程
+            cur->Resume();
+            if (!cur->Done())
+            {
+                break;
+            }
+            // 执行完毕，再切换到上一层
+            cur = cur->Prev();
+        }
+    }
     event_base* GetEventBase();
     void AutoFree(event* ev);
 

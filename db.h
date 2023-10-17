@@ -15,7 +15,7 @@ public:
         mysql_close(m_db);
     }
 
-    Task Connect(std::string_view ip, int32_t port, std::string_view username, std::string_view pass, std::string_view default_db)
+    Task<bool> Connect(std::string_view ip, int32_t port, std::string_view username, std::string_view pass, std::string_view default_db)
     {
         // 运行状态
         net_async_status s = NET_ASYNC_COMPLETE;
@@ -78,10 +78,10 @@ public:
         {
             std::cout <<  "登陆失败" << std::endl;
         }
-        co_return;
+        co_return s != NET_ASYNC_COMPLETE;
     }
 
-    Task Query(const std::string& sql)
+    Task<net_async_status> Query(const std::string& sql)
     {
         // 运行状态
         net_async_status s = NET_ASYNC_COMPLETE;
@@ -133,10 +133,10 @@ public:
         {
             std::cout << "查询错误" << std::endl;
         }
-        co_return;
+        co_return s;
     }
 
-    Task CoStoreResult()
+    Task<void> CoStoreResult()
     {
         // 运行状态
         net_async_status s = NET_ASYNC_COMPLETE;

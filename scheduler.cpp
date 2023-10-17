@@ -88,45 +88,6 @@ Executor* Executor::ThreadLocalInstance(Executor* ptr)
     return exec;
 }
 
-void Executor::ResumeCoroutine(std::coroutine_handle<TaskPromise>& handle)
-{
-    if (!handle) return;
-
-    auto& promise = handle.promise();
-    handle.resume();
-    if (!handle.done())
-    {
-        return;
-    }
-
-    auto cur = promise.m_prev;
-    if (!cur && promise.m_deleter)
-    {
-        promise.m_deleter();
-        return;
-    }
-    while(cur)
-    {
-        // 当前协程已执行完毕, 恢复上一个协程
-        cur.resume();
-        if (!cur.done())
-        {
-            break;
-        }
-
-        //执行完毕，再切换到上一层
-        auto& cur_promise = cur.promise();
-        auto del = cur_promise.m_deleter;
-        cur = cur_promise.m_prev;
-
-        // 整个协程的嵌套执行完毕，清空相关数据
-        if (!cur && del)
-        {
-            del();
-        }
-    }
-}
-
 event_base* Executor::GetEventBase()
 {
     return m_base;
@@ -157,7 +118,7 @@ void Executor::RunTask()
         {
             void* ptr = task.get();
             m_task_vect[ptr] = task;
-            task->SetDeleter([this, ptr](){m_task_vect.erase(ptr);});
+            task->SetDeleter([this, ptr]() { m_task_vect.erase(ptr); });
         }
         else
         {

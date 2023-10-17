@@ -11,22 +11,29 @@ public:
 
     bool await_ready() const { return false; }
 
-    void await_suspend(std::coroutine_handle<TaskPromise> handle)
+    template <typename T>
+    void await_suspend(T handle)
     {
         auto exec = Executor::ThreadLocalInstance();
         assert(exec);
-        m_handle = handle;
+        m_resume = [handle]() {Executor::ResumeCoroutine(handle);};
         Handle();
     }
 
-    void await_resume() {}
+    int await_resume() {
+        return 1;
+    }
 
     virtual void Handle() = 0;
 
-    void Resume() { Executor::ResumeCoroutine(m_handle); }
-
+    void Resume() {
+        if (m_resume)
+        {
+            m_resume();
+        }
+    }
 private:
-    std::coroutine_handle<TaskPromise> m_handle;
+    std::function<void()> m_resume;
 };
 
 #endif  // COTASK_AWAITER_H

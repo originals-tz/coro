@@ -8,7 +8,7 @@
 class SleepTask : public CoTask
 {
 public:
-    Task CoHandle() override
+    Task<void> CoHandle() override
     {
         std::cout << "start" << std::endl;
         co_await Test2();
@@ -17,28 +17,28 @@ public:
         co_return;
     }
 
-    Task Test2()
+    Task<void> Test2()
     {
         std::cout << "start2" << std::endl;
-        co_await Test3();
+        std::cout <<  co_await Test3() << std::endl;
         co_await CoSleep(1);
         std::cout << "end2" << std::endl;
         co_return;
     }
 
-    Task Test3()
+    Task<int> Test3()
     {
         std::cout << "start3" << std::endl;
         co_await CoSleep(1);
         std::cout << "end3" << std::endl;
-        co_return;
+        co_return 10;
     }
 };
 
 class Noting : public CoTask
 {
 public:
-    Task CoHandle() override
+    Task<void> CoHandle() override
     {
         std::cout << "cohandle begin" << std::endl;
         co_await Test1();
@@ -46,7 +46,7 @@ public:
         co_return;
     }
 
-    Task Test1()
+    Task<void> Test1()
     {
         std::cout << "test1 begin" << std::endl;
         co_await CoSleep(1);
@@ -58,7 +58,7 @@ public:
 class TestMYSQL : public CoTask
 {
 public:
-    Task CoHandle() override
+    Task<void> CoHandle() override
     {
 //        DB db("", 3309, "", "", "");
 //        std::cout << "begin" << std::endl;
