@@ -1,7 +1,11 @@
+/**
+ * @brief 次文件包含了c++20协程核心的几个组件，详情查阅文档https://zh.cppreference.com/w/cpp/language/coroutines
+ */
 #ifndef COTASK_TASK_H
 #define COTASK_TASK_H
 
 #include <evdns.h>
+#include <fmt/format.h>
 #include <coroutine>
 #include <functional>
 #include <iostream>
@@ -9,6 +13,9 @@
 #include <optional>
 #include <queue>
 #include <utility>
+
+namespace coro
+{
 
 template <typename RET>
 class Task;
@@ -36,6 +43,8 @@ public:
     virtual void Resume() = 0;
     virtual bool Done() = 0;
     virtual std::unique_ptr<HandlerBase> Prev() = 0;
+    virtual bool IsRoot() = 0;
+    virtual void Free() = 0;
 };
 
 template <typename T>
@@ -56,6 +65,17 @@ public:
         return std::move(promise.m_prev);
     }
 
+    bool IsRoot() override { return m_handler.promise().m_prev == nullptr; }
+
+    void Free() override
+    {
+        auto& deleter = m_handler.promise().m_deleter;
+        if (deleter)
+        {
+            deleter();
+        }
+    }
+
 private:
     std::coroutine_handle<T> m_handler;
 };
@@ -63,6 +83,20 @@ private:
 template <typename RET>
 struct TaskPromise : public PromiseRes<RET>
 {
+#ifdef CO_DEBUG
+    TaskPromise()
+    {
+        auto ptr = (void*)this;
+        std::cout << fmt::format("Promise : {}", ptr) << std::endl;
+    }
+
+    ~TaskPromise()
+    {
+        auto ptr = (void*)this;
+        std::cout << fmt::format("Release Promise : {}", ptr) << std::endl;
+    }
+#endif
+
     Task<RET> get_return_object() { return Task(std::coroutine_handle<TaskPromise>::from_promise(*this)); }
 
     std::suspend_never initial_suspend() { return {}; }
@@ -202,5 +236,7 @@ public:
 private:
     Task<void> m_task;
 };
+
+}  // namespace coro
 
 #endif  // COTASK_TASK_H

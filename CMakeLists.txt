@@ -7,4 +7,4 @@ include_directories("/usr/include")
 link_directories("/usr/lib/aarch64-linux-gnu"
                 "/usr/lib64/mysql")
 add_executable(cotask main.cpp task.cpp scheduler.cpp)
-target_link_libraries(cotask event mysqlclient)
+target_link_libraries(cotask event mysqlclient fmt)
