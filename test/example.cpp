@@ -1,6 +1,7 @@
-#include "coro/task.h"
-#include "coro/scheduler.h"
-#include "coro/awaiter.h"
+#include "task.h"
+#include "scheduler.h"
+#include "awaiter.h"
+#include <gtest/gtest.h>
 
 event_base* base = nullptr;
 std::shared_ptr<coro::Executor> exec;
@@ -45,7 +46,7 @@ void AddCoTask(evutil_socket_t, short, void* ptr)
     std::cout << "add task" << std::endl;
 }
 
-int main()
+TEST(example, main)
 {
     base = event_base_new();
     exec = std::make_shared<coro::Executor>(base);
@@ -58,5 +59,4 @@ int main()
 
     event_base_dispatch(base);
     event_base_free(base);
-    return 0;
 }
