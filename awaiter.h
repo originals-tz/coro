@@ -1,5 +1,5 @@
-#ifndef COTASK_AWAITER_H
-#define COTASK_AWAITER_H
+#ifndef CORO_AWAITER_H
+#define CORO_AWAITER_H
 
 #include "scheduler.h"
 
@@ -99,4 +99,4 @@ private:
 
 }  // namespace coro
 
-#endif  // COTASK_AWAITER_H
+#endif  // CORO_AWAITER_H

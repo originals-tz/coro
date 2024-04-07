@@ -1,7 +1,8 @@
-#include "task.h"
-#include "scheduler.h"
-#include "awaiter.h"
 #include <gtest/gtest.h>
+#include "awaiter.h"
+#include "mysqlclient.h"
+#include "scheduler.h"
+#include "task.h"
 
 event_base* base = nullptr;
 std::shared_ptr<coro::Executor> exec;
@@ -15,7 +16,7 @@ struct Sleep : coro::BaseAwaiter<void>
         // 注册libevent事件
         auto ev = evtimer_new(base, OnTimeout, this);
         evtimer_add(ev, &tv);
-        co_await *this; //切出去
+        co_await *this;  // 切出去
         // 从这里恢复, 继续执行
         event_free(ev);
         co_return sec;
@@ -23,7 +24,7 @@ struct Sleep : coro::BaseAwaiter<void>
 
     static void OnTimeout(evutil_socket_t, short, void* arg)
     {
-        //在回调函数中恢复协程
+        // 在回调函数中恢复协程
         static_cast<Sleep*>(arg)->Resume();
     }
 };
@@ -42,14 +43,14 @@ coro::Task<void> TestSleep()
 void AddCoTask(evutil_socket_t, short, void* ptr)
 {
     // 开始执行协程
-    exec->RunTask([]{return TestSleep();});
+    exec->RunTask([] { return TestSleep(); });
     std::cout << "add task" << std::endl;
 }
 
 TEST(example, main)
 {
     base = event_base_new();
-    exec = std::make_shared<coro::Executor>(base);
+    exec = std::make_shared<coro::Executor>();
 
     timeval tv;
     tv.tv_sec = 0;

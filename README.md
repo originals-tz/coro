@@ -18,4 +18,4 @@ c0 为第一个协程，在外部持有句柄, 需要手动释放
 
 ## 用法
 
-根据需求把libevent对应的事件封装为awaiter, 然后在协程中使用, 详情看
+根据需求把libevent对应的事件封装为awaiter, 然后在协程中使用, 详情看test/example

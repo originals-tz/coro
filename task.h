@@ -1,8 +1,8 @@
 /**
  * @brief 次文件包含了c++20协程核心的几个组件，详情查阅文档https://zh.cppreference.com/w/cpp/language/coroutines
  */
-#ifndef COTASK_TASK_H
-#define COTASK_TASK_H
+#ifndef CORO_TASK_H
+#define CORO_TASK_H
 
 #include <evdns.h>
 #include <fmt/format.h>
@@ -239,4 +239,4 @@ private:
 
 }  // namespace coro
 
-#endif  // COTASK_TASK_H
+#endif  // CORO_TASK_H

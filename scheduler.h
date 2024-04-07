@@ -1,5 +1,5 @@
-#ifndef COTASK_SCHEDULER_H
-#define COTASK_SCHEDULER_H
+#ifndef CORO_SCHEDULER_H
+#define CORO_SCHEDULER_H
 
 #include <fcntl.h>
 #include <sys/eventfd.h>
@@ -66,10 +66,6 @@ struct SimpleTask : CoTask
 class Executor
 {
 public:
-    explicit Executor(event_base* base)
-        : m_base(base)
-    {}
-
     /**
      * @brief 调度协程
      * @param handle
@@ -139,10 +135,24 @@ public:
      */
     size_t GetTaskCount() { return m_task_vect.size(); }
 
+    /**
+     * @brief 设置当前线程的eventbase
+     * @param base
+     * @return
+     */
+    static event_base* LocalEventBase(event_base* base = nullptr)
+    {
+        static thread_local event_base* evbase = nullptr;
+        if (base)
+        {
+            evbase = base;
+        }
+        return evbase;
+    }
+
 private:
-    event_base* m_base = nullptr;
     std::unordered_map<void*, std::shared_ptr<CoTask>> m_task_vect;
 };
 
 }  // namespace coro
-#endif  // COTASK_SCHEDULER_H
+#endif  // CORO_SCHEDULER_H
