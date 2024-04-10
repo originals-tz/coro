@@ -134,6 +134,54 @@ public:
         co_return {s, err};
     }
 
+    Task<std::pair<int32_t, MYSQL_RES*>> StoreResult()
+    {
+        if (!m_con)
+        {
+            co_return {0, nullptr};
+        }
+
+        net_async_status s = NET_ASYNC_COMPLETE;
+        MYSQL_RES* result = nullptr;
+        do {
+            s = mysql_store_result_nonblocking(m_con, &result);
+            if (s == NET_ASYNC_NOT_READY)
+            {
+                co_await Sleep(0, 16);
+            }
+        } while(s == NET_ASYNC_NOT_READY);
+
+        if (s == NET_ASYNC_ERROR || !result)
+        {
+            co_return {mysql_errno(m_con), nullptr};
+        }
+        co_return {0, result};
+    }
+
+    Task<std::pair<int32_t, MYSQL_ROW>> FetchRow(MYSQL_RES* res)
+    {
+        if (!res)
+        {
+            co_return {0, nullptr};
+        }
+
+        net_async_status s = NET_ASYNC_COMPLETE;
+        MYSQL_ROW row = nullptr;
+        do {
+            s = mysql_fetch_row_nonblocking(res, &row);
+            if (s == NET_ASYNC_NOT_READY)
+            {
+                co_await Sleep(0, 16);
+            }
+        } while(s == NET_ASYNC_NOT_READY);
+
+        if (s == NET_ASYNC_ERROR || !row)
+        {
+            co_return {mysql_errno(m_con), nullptr};
+        }
+        co_return {0, row};
+    }
+
     MYSQL* GetCon() { return m_con; }
 
 private:
