@@ -1,4 +1,4 @@
-#include "mysqlclient.h"
+#include "client.h"
 
 namespace coro
 {
@@ -10,7 +10,39 @@ MYSQLClient::~MYSQLClient()
     }
 }
 
-Task<std::pair<net_async_status, uint32_t>> MYSQLClient::Connect(const std::string& host, const std::string& name, const std::string& passwd, const std::string& database, int32_t port, int32_t timeout)
+uint32_t MYSQLClient::Connect(const std::string& host, const std::string& name, const std::string& passwd, const std::string& database, int32_t port, int32_t timeout)
+{
+    if (m_con)
+    {
+        mysql_close(m_con);
+    }
+    m_port = port;
+    m_host = host;
+    m_name = name;
+    m_passwd = passwd;
+    m_database = database;
+    m_connect_timeout = timeout;
+
+    uint32_t err = 0;
+    int32_t reconnect = 0;
+
+    m_con = mysql_init(nullptr);
+    mysql_options(m_con, MYSQL_SET_CHARSET_NAME, "utf8");
+    mysql_options(m_con, MYSQL_INIT_COMMAND, "SET NAMES utf8");
+    mysql_options(m_con, MYSQL_OPT_CONNECT_TIMEOUT, &m_connect_timeout);
+    mysql_options(m_con, MYSQL_OPT_COMPRESS, nullptr);
+
+    MYSQL* res = nullptr;
+    while(!(res = mysql_real_connect(m_con, host.c_str(), name.c_str(), passwd.c_str(), database.c_str(), port, nullptr, 0)) &&
+           reconnect++ < 3);
+    if (!res)
+    {
+        err = mysql_errno(m_con);
+    }
+    return err;
+}
+
+Task<std::pair<net_async_status, uint32_t>> MYSQLClient::AsyncConnect(const std::string& host, const std::string& name, const std::string& passwd, const std::string& database, int32_t port, int32_t timeout)
 {
     if (m_con)
     {
@@ -70,6 +102,7 @@ Task<std::pair<net_async_status, uint32_t>> MYSQLClient::Connect(const std::stri
     co_return {s, err};
 }
 
+
 std::pair<bool, uint32_t> MYSQLClient::Ping() const
 {
     if (!m_con)
@@ -115,7 +148,7 @@ Task<std::pair<net_async_status, uint32_t>> MYSQLClient::Query(const std::string
                 err == 2013 ||
                 err == 2055)
             {
-                auto [tmp_s, tmp_err] = co_await Connect(m_host, m_name, m_passwd, m_database, m_port);
+                auto [tmp_s, tmp_err] = co_await AsyncConnect(m_host, m_name, m_passwd, m_database, m_port);
                 if (tmp_err != 0)
                 {
                     s = tmp_s;

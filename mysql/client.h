@@ -2,8 +2,8 @@
 #define CORO_MYSQLCLIENT_H
 
 #include <mysql/mysql.h>
-#include "sleep.h"
-#include "task.h"
+#include "../sleep.h"
+#include "../task.h"
 
 namespace coro
 {
@@ -12,6 +12,18 @@ class MYSQLClient
 public:
     MYSQLClient() = default;
     ~MYSQLClient();
+
+    /**
+     * @brief 同步连接mysql
+     * @param host
+     * @param name
+     * @param passwd
+     * @param database
+     * @param port
+     * @param timeout
+     * @return
+     */
+    uint32_t Connect(const std::string& host, const std::string& name, const std::string& passwd, const std::string& database, int32_t port, int32_t timeout = 12);
 
     /**
      * @brief 连接mysql
@@ -23,7 +35,7 @@ public:
      * @param timeout 超时时间
      * @return 状态，错误码
      */
-    Task<std::pair<net_async_status, uint32_t>> Connect(const std::string& host, const std::string& name, const std::string& passwd, const std::string& database, int32_t port, int32_t timeout = 12);
+    Task<std::pair<net_async_status, uint32_t>> AsyncConnect(const std::string& host, const std::string& name, const std::string& passwd, const std::string& database, int32_t port, int32_t timeout = 12);
 
     /**
      * @brief ping

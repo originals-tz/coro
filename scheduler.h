@@ -66,6 +66,10 @@ struct SimpleTask : CoTask
 class Executor
 {
 public:
+    Executor(event_base* base)
+        : m_base(base)
+    {
+    }
     /**
      * @brief 调度协程
      * @param handle
@@ -115,6 +119,7 @@ public:
      */
     void RunTask(const std::shared_ptr<CoTask>& task)
     {
+        *EventBase() = m_base;
         if (!task->Run())
         {
             void* ptr = task.get();
@@ -136,21 +141,25 @@ public:
     size_t GetTaskCount() { return m_task_vect.size(); }
 
     /**
-     * @brief 设置当前线程的eventbase
+     * @brief 获取当前线程的eventbase
+     * @return
+     */
+    static event_base* LocalEventBase()
+    {
+        return *EventBase();
+    }
+private:
+    /**
+     * @brief 获取当前线程的eventbase
      * @param base
      * @return
      */
-    static event_base* LocalEventBase(event_base* base = nullptr)
+    static event_base** EventBase()
     {
         static thread_local event_base* evbase = nullptr;
-        if (base)
-        {
-            evbase = base;
-        }
-        return evbase;
+        return &evbase;
     }
-
-private:
+    event_base* m_base;
     std::unordered_map<void*, std::shared_ptr<CoTask>> m_task_vect;
 };
 
