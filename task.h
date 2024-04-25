@@ -25,7 +25,7 @@ class TaskAwaiter;
 template <typename T>
 struct PromiseRes
 {
-    void return_value(T ret) { m_ret = ret; }
+    void return_value(T ret) { m_ret = std::move(ret); }
     std::optional<T> m_ret;
 };
 
@@ -208,7 +208,7 @@ public:
         m_task.Finally(handle);
     }
 
-    RET await_resume() noexcept { return m_task.m_handle.promise().m_ret.value(); }
+    RET&& await_resume() noexcept { return std::move(m_task.m_handle.promise().m_ret.value()); }
 
 private:
     Task<RET> m_task;
