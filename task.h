@@ -25,7 +25,7 @@ class TaskAwaiter;
 template <typename T>
 struct PromiseRes
 {
-    void return_value(T ret) { m_ret = std::move(ret); }
+    void return_value(T ret) { m_ret.emplace(std::move(ret)); }
     std::optional<T> m_ret;
 };
 

@@ -5,63 +5,25 @@
 #include <optional>
 #include <set>
 #include "awaiter.h"
+#include "eventfd.h"
 #include "scheduler.h"
 #include "task.h"
 
 namespace coro
 {
-enum E_CHAN_STATUS
-{
-    e_chan_success, //成功
-    e_chan_close    //关闭
+enum E_CHAN_STATUS {
+    e_chan_success,  // 成功
+    e_chan_close     // 关闭
 };
 
-class ChannelAwait :  public coro::BaseAwaiter<void>
-{
-public:
-    explicit ChannelAwait(int32_t fd)
-        : m_evfd(fd)
-    {
-    }
-
-    /**
-     * @brief 注册事件
-     */
-    void Handle() override
-    {
-        auto base = Executor::LocalEventBase();
-        m_event = event_new(base, m_evfd, EV_READ, OnRead, this);
-        event_add(m_event, nullptr);
-    }
-
-private:
-    /**
-     * @brief 回调
-     * @param arg
-     */
-    static void OnRead(evutil_socket_t, short, void* arg)
-    {
-        auto pthis = static_cast<ChannelAwait*>(arg);
-        eventfd_t val = 0;
-        eventfd_read(pthis->m_evfd, &val);
-        event_free(pthis->m_event);
-        pthis->Resume();
-    }
-
-    //! eventfd
-    int m_evfd = 0;
-    //! 事件
-    event* m_event = nullptr;
-};
-
-template<typename T>
+template <typename T>
 class Channel
 {
 public:
     Channel() = default;
     ~Channel()
     {
-        while(!m_fd_queue.empty())
+        while (!m_fd_queue.empty())
         {
             close(m_fd_queue.front());
             m_fd_queue.pop();
@@ -131,9 +93,10 @@ public:
             co_return e_chan_close;
         }
 
-        int32_t fd = 0;
+        int32_t fd = -1;
         E_CHAN_STATUS s = e_chan_close;
-        do {
+        do
+        {
             {
                 std::lock_guard lk(m_mut);
                 if (!m_data_queue.empty())
@@ -143,18 +106,18 @@ public:
                     s = e_chan_success;
                     break;
                 }
-                if (fd == 0)
+
+                if (fd == -1)
                 {
                     fd = GetEventFD();
                 }
-                m_waiting_list.emplace(fd);
             }
-            co_await ChannelAwait(fd);
-        } while(!m_is_close);
-
+            co_await EventfdAwaiter(fd);
+        } while (!m_is_close);
         ReleaseFD(fd);
         co_return s;
     }
+
 private:
     /**
      * @brief 通知协程
@@ -181,9 +144,12 @@ private:
         {
             int fd = m_fd_queue.front();
             m_fd_queue.pop();
+            m_waiting_list.emplace(fd);
             return fd;
         }
-        return eventfd(0, 0);
+        int fd = eventfd(0, 0);
+        m_waiting_list.emplace(fd);
+        return fd;
     }
 
     /**
@@ -193,6 +159,7 @@ private:
     void ReleaseFD(int fd)
     {
         std::lock_guard lk(m_mut);
+        m_waiting_list.erase(fd);
         m_fd_queue.emplace(fd);
     }
 
@@ -207,6 +174,6 @@ private:
     //! 是否关闭
     std::atomic_bool m_is_close = false;
 };
-}
+}  // namespace coro
 
 #endif  // CORO_CHANNEL_H
