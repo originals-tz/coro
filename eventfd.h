@@ -11,39 +11,39 @@
 namespace coro
 {
 
-class EventfdAwaiter : public coro::BaseAwaiter<void>
+class EventFdAwaiter : public coro::BaseAwaiter<void>
 {
 public:
-    explicit EventfdAwaiter(int32_t fd)
-        : m_evfd(fd)
+    explicit EventFdAwaiter(int32_t fd)
+        : m_event_fd(fd)
     {}
 
     /**
-     * @brief 注册事件
+     * @brief 注册可读事件
      */
     void Handle() override
     {
         auto base = Executor::LocalEventBase();
-        m_event = event_new(base, m_evfd, EV_READ, OnRead, this);
+        m_event = event_new(base, m_event_fd, EV_READ, OnRead, this);
         event_add(m_event, nullptr);
     }
 
 private:
     /**
-     * @brief 回调
+     * @brief 事件回调
      * @param arg
      */
     static void OnRead(evutil_socket_t, short, void* arg)
     {
-        auto pthis = static_cast<EventfdAwaiter*>(arg);
+        auto pthis = static_cast<EventFdAwaiter*>(arg);
         eventfd_t val = 0;
-        eventfd_read(pthis->m_evfd, &val);
+        eventfd_read(pthis->m_event_fd, &val);
         event_free(pthis->m_event);
         pthis->Resume();
     }
 
-    //! eventfd
-    int m_evfd = 0;
+    //! 文件描述符
+    int m_event_fd = 0;
     //! 事件
     event* m_event = nullptr;
 };

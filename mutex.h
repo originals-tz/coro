@@ -14,12 +14,13 @@ namespace coro
 class LockGuard
 {
 public:
+    //! 不允许拷贝，只允许移动
     LockGuard(const LockGuard& x) = delete;
     LockGuard(LockGuard&& x) = default;
+
     explicit LockGuard(std::function<void()> unlock)
         : m_unlock(std::move(unlock))
     {}
-
     ~LockGuard()
     {
         if (m_unlock)
@@ -35,9 +36,18 @@ private:
 class Mutex
 {
 public:
+    Mutex() = default;
+    ~Mutex()
+    {
+        while(!m_fd_queue.empty())
+        {
+            close(m_fd_queue.front());
+            m_fd_queue.pop();
+        }
+    }
     /**
      * @brief 上锁
-     * @return
+     * @return 锁的RAII对象
      */
     Task<LockGuard> Lock()
     {
@@ -57,7 +67,7 @@ public:
                     fd = GetEventFD();
                 }
             }
-            co_await EventfdAwaiter(fd);
+            co_await EventFdAwaiter(fd);
         } while (true);
         ReleaseFD(fd);
         co_return LockGuard([this] { Unlock(); });
@@ -80,8 +90,8 @@ public:
 
 private:
     /**
-     * @brief 获取fd
-     * @return
+     * @brief 获取文件描述符
+     * @return 文件描述符
      */
     int GetEventFD()
     {
@@ -99,8 +109,8 @@ private:
     }
 
     /**
-     * @brief 回收fd
-     * @param fd
+     * @brief 回收文件描述符
+     * @param 文件描述符
      */
     void ReleaseFD(int fd)
     {

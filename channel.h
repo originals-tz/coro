@@ -51,8 +51,8 @@ public:
 
     /**
      * @brief 添加一个数据
-     * @param t
-     * @return
+     * @param t 数据
+     * @return 是否成功添加
      */
     E_CHAN_STATUS Push(T&& t)
     {
@@ -67,8 +67,8 @@ public:
 
     /***
      * @brief 添加一个数据
-     * @param t
-     * @return
+     * @param t 数据
+     * @return 是否成功添加
      */
     E_CHAN_STATUS Push(const T& t)
     {
@@ -112,7 +112,7 @@ public:
                     fd = GetEventFD();
                 }
             }
-            co_await EventfdAwaiter(fd);
+            co_await EventFdAwaiter(fd);
         } while (!m_is_close);
         ReleaseFD(fd);
         co_return s;
@@ -134,8 +134,8 @@ private:
     }
 
     /**
-     * @brief 获取fd
-     * @return
+     * @brief 获取文件描述符
+     * @return 文件描述符
      */
     int GetEventFD()
     {
@@ -153,8 +153,8 @@ private:
     }
 
     /**
-     * @brief 回收fd
-     * @param fd
+     * @brief 回收文件描述符
+     * @param 文件描述符
      */
     void ReleaseFD(int fd)
     {
