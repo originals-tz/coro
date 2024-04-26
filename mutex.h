@@ -36,22 +36,13 @@ private:
 class Mutex
 {
 public:
-    Mutex() = default;
-    ~Mutex()
-    {
-        while(!m_fd_queue.empty())
-        {
-            close(m_fd_queue.front());
-            m_fd_queue.pop();
-        }
-    }
     /**
      * @brief 上锁
      * @return 锁的RAII对象
      */
     Task<LockGuard> Lock()
     {
-        int32_t fd = -1;
+        fd_t fd;
         do
         {
             {
@@ -62,14 +53,15 @@ public:
                     break;
                 }
 
-                if (fd == -1)
+                if (!fd)
                 {
-                    fd = GetEventFD();
+                    fd = m_fd_mgr.Acquire();
+                    m_waiting_list.emplace(*fd);
                 }
             }
-            co_await EventFdAwaiter(fd);
+            co_await EventFdAwaiter(*fd);
         } while (true);
-        ReleaseFD(fd);
+        m_waiting_list.erase(*fd);
         co_return LockGuard([this] { Unlock(); });
     }
 
@@ -89,48 +81,14 @@ public:
     }
 
 private:
-    /**
-     * @brief 获取文件描述符
-     * @return 文件描述符
-     */
-    int GetEventFD()
-    {
-        std::lock_guard lk(m_mut);
-        if (!m_fd_queue.empty())
-        {
-            int fd = m_fd_queue.front();
-            m_fd_queue.pop();
-            m_waiting_list.emplace(fd);
-            return fd;
-        }
-        int fd = eventfd(0, 0);
-        m_waiting_list.emplace(fd);
-        return fd;
-    }
-
-    /**
-     * @brief 回收文件描述符
-     * @param 文件描述符
-     */
-    void ReleaseFD(int fd)
-    {
-        if (fd == -1)
-        {
-            return;
-        }
-        std::lock_guard lk(m_mut);
-        m_waiting_list.erase(fd);
-        m_fd_queue.emplace(fd);
-    }
-
     //! 是否上锁
     std::atomic_bool m_is_lock = false;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
-    //! fd队列
-    std::queue<int32_t> m_fd_queue;
     //! 正在等待的fd列表
     std::set<int> m_waiting_list;
+    //! 文件描述符管理
+    EventFdManager m_fd_mgr;
 };
 }  // namespace coro
 

@@ -7,14 +7,67 @@
 #include "awaiter.h"
 #include "scheduler.h"
 #include "task.h"
+#include <list>
 
 namespace coro
 {
 
+using fd_t = std::unique_ptr<int, std::function<void(int*)>>;
+
+class EventFdManager
+{
+public:
+    EventFdManager() = default;
+    ~EventFdManager()
+    {
+        for (auto& fd : m_fd_list)
+        {
+            close(*fd);
+            delete fd;
+        }
+    }
+
+    /**
+     * @brief 获取文件描述符
+     * @return 文件描述符
+     */
+    fd_t Acquire()
+    {
+        std::lock_guard lk(m_mut);
+        if (!m_fd_list.empty())
+        {
+            int* fd = m_fd_list.front();
+            m_fd_list.pop_front();
+            return {fd, [this](auto ptr) {Release(ptr);}};
+        }
+        int* fd = new int(eventfd(0, 0));
+        return {fd, [this](auto ptr) {Release(ptr);}};
+    }
+
+private:
+    /**
+     * @brief 回收文件描述符
+     * @param fd
+     */
+    void Release(int* fd)
+    {
+        std::lock_guard lk(m_mut);
+        if (*fd == -1)
+        {
+            return;
+        }
+        m_fd_list.emplace_back(fd);
+    }
+    //! 互斥锁
+    std::mutex m_mut;
+    //! 文件描述符
+    std::list<int*> m_fd_list;
+};
+
 class EventFdAwaiter : public coro::BaseAwaiter<void>
 {
 public:
-    explicit EventFdAwaiter(int32_t fd)
+    explicit EventFdAwaiter(int fd)
         : m_event_fd(fd)
     {}
 
