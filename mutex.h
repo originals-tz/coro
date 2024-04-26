@@ -17,7 +17,6 @@ public:
     //! 不允许拷贝，只允许移动
     LockGuard(const LockGuard& x) = delete;
     LockGuard(LockGuard&& x) = default;
-
     explicit LockGuard(std::function<void()> unlock)
         : m_unlock(std::move(unlock))
     {}
@@ -56,12 +55,12 @@ public:
                 if (!fd)
                 {
                     fd = m_fd_mgr.Acquire();
-                    m_waiting_list.emplace(*fd);
+                    m_waiting_fd.emplace(*fd);
                 }
             }
             co_await EventFdAwaiter(*fd);
         } while (true);
-        m_waiting_list.erase(*fd);
+        m_waiting_fd.erase(*fd);
         co_return LockGuard([this] { Unlock(); });
     }
 
@@ -71,9 +70,9 @@ public:
     void Unlock()
     {
         std::lock_guard lk(m_mut);
-        if (!m_waiting_list.empty())
+        if (!m_waiting_fd.empty())
         {
-            int fd = *m_waiting_list.begin();
+            int fd = *m_waiting_fd.begin();
             eventfd_t val = 1;
             eventfd_write(fd, val);
         }
@@ -86,7 +85,7 @@ private:
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
     //! 正在等待的fd列表
-    std::set<int> m_waiting_list;
+    std::set<int> m_waiting_fd;
     //! 文件描述符管理
     EventFdManager m_fd_mgr;
 };
