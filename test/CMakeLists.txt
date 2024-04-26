@@ -28,6 +28,8 @@ foreach (v ${CPP_SRC_LIST})
             gtest_main
             mysqlclient
     )
+    target_compile_options(${target_name}_test PRIVATE -fsanitize=address -fno-omit-frame-pointer -fstack-protector-all)
+    target_link_options(${target_name}_test PRIVATE -fsanitize=address)
     add_test(NAME ${target_name}_test COMMAND ${target_name}_test
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 endforeach ()

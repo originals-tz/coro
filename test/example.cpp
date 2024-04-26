@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 #include "awaiter.h"
-#include "mysqlclient.h"
 #include "scheduler.h"
 #include "task.h"
 
@@ -50,7 +49,7 @@ void AddCoTask(evutil_socket_t, short, void* ptr)
 TEST(example, main)
 {
     base = event_base_new();
-    exec = std::make_shared<coro::Executor>();
+    exec = std::make_shared<coro::Executor>(base);
 
     timeval tv;
     tv.tv_sec = 0;
