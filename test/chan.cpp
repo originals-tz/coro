@@ -8,7 +8,7 @@ std::shared_ptr<coro::Channel<int>> chan;
 coro::Task<void> CoRead()
 {
     int val;
-    while (co_await chan->Pop(val) != coro::e_chan_close)
+    while (co_await chan->Pop(val))
     {
         std::cout << "get " << val << std::endl;
     }
@@ -64,7 +64,7 @@ coro::Task<void> SelectRead()
         {
             std::cout << "read str" << str << std::endl;
         }
-    } while (co_await select.Wait(ch2, ch3));
+    } while (co_await select(ch2, ch3));
 }
 
 coro::Task<void> WriteVal()

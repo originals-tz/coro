@@ -11,10 +11,6 @@
 
 namespace coro
 {
-enum E_CHAN_STATUS {
-    e_chan_success,  // 成功
-    e_chan_close     // 关闭
-};
 
 template <typename T>
 class Channel
@@ -49,17 +45,17 @@ public:
      * @return 是否成功添加
      */
     template <class DATA>
-    E_CHAN_STATUS Push(DATA&& t)
+    bool Push(DATA&& t)
     {
         if (m_is_close)
         {
-            return e_chan_close;
+            return false;
         }
         std::lock_guard lk(m_mut);
         m_data_queue.emplace(std::forward<DATA>(t));
         eventfd_write(m_fd, 1);
         eventfd_write(m_select_fd, 1);
-        return e_chan_success;
+        return true;
     }
 
     /**
@@ -67,14 +63,14 @@ public:
      * @param t
      * @return
      */
-    Task<E_CHAN_STATUS> Pop(T& t)
+    Task<bool> Pop(T& t)
     {
         if (m_is_close)
         {
-            co_return e_chan_close;
+            co_return false;
         }
 
-        E_CHAN_STATUS s = e_chan_close;
+        bool s = false;
         do
         {
             {
@@ -83,7 +79,7 @@ public:
                 {
                     t = std::move(m_data_queue.front().value());
                     m_data_queue.pop();
-                    s = e_chan_success;
+                    s = true;
                     break;
                 }
             }
@@ -165,7 +161,7 @@ public:
      * @return
      */
     template <typename... CHANNEL>
-    coro::Task<bool> Wait(CHANNEL&&... chan)
+    coro::Task<bool> operator()(CHANNEL&&... chan)
     {
         // 如果channel全部关闭，那么退出
         if ((... && chan.IsClose()))
