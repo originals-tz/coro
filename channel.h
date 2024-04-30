@@ -39,6 +39,7 @@ public:
         {
             m_is_close = true;
             eventfd_write(m_fd, 1);
+            eventfd_write(m_select_fd, 1);
         }
     }
 
@@ -57,6 +58,7 @@ public:
         std::lock_guard lk(m_mut);
         m_data_queue.emplace(std::forward<DATA>(t));
         eventfd_write(m_fd, 1);
+        eventfd_write(m_select_fd, 1);
         return e_chan_success;
     }
 
@@ -92,27 +94,92 @@ public:
         co_return s;
     }
 
-    /***
-     * @brief 获取数据
+    /**
+     * @brief 尝试获取数据
      * @param t
      * @return
      */
-    Task<E_CHAN_STATUS> operator>>(T& t)
+    bool TryPop(T& t)
     {
-        co_return Pop(t);
+        if (m_is_close)
+        {
+            return false;
+        }
+
+        std::lock_guard lk(m_mut);
+        if (!m_data_queue.empty())
+        {
+            t = std::move(m_data_queue.front().value());
+            m_data_queue.pop();
+            return true;
+        }
+        return false;
     }
 
+    /**
+     * @brief 设置额外的eventfd用于通知
+     */
+    void BindSelect(int fd)
+    {
+        m_select_fd = fd;
+    }
+
+    /**
+     * @brief 是否关闭
+     * @return
+     */
+    bool IsClose()
+    {
+        return m_is_close;
+    }
 private:
     //! eventfd
     int m_fd = 0;
+    //! 额外的eventfd
+    std::atomic_int m_select_fd = -1;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
     //! 数据队列
     std::queue<std::optional<T>> m_data_queue;
     //! 是否关闭
     std::atomic_bool m_is_close = false;
-    //! 文件描述符管理
-    EventFdManager m_fd_mgr;
+};
+
+class Select
+{
+public:
+    Select()
+    {
+        m_fd = eventfd(0, 0);
+    }
+
+    ~Select()
+    {
+        close(m_fd);
+    }
+
+    /**
+     * @brief 等待某个channel的数据
+     * @tparam CHANNEL
+     * @param chan
+     * @return
+     */
+    template <typename... CHANNEL>
+    coro::Task<bool> Wait(CHANNEL&&... chan)
+    {
+        // 如果channel全部关闭，那么退出
+        if ((... && chan.IsClose()))
+        {
+            co_return false;
+        }
+
+        (chan.BindSelect(m_fd), ...);
+        co_await EventFdAwaiter(m_fd);
+        co_return !(... && chan.IsClose());
+    }
+
+private:
+    int32_t m_fd = -1;
 };
 }  // namespace coro
 
