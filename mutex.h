@@ -27,6 +27,7 @@ public:
             m_unlock();
         }
     }
+
 private:
     //! 解锁函数
     std::function<void()> m_unlock;

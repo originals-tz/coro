@@ -1,13 +1,13 @@
 #ifndef CORO_EVENTFD_H
 #define CORO_EVENTFD_H
 
+#include <list>
 #include <mutex>
 #include <optional>
 #include <set>
 #include "awaiter.h"
 #include "scheduler.h"
 #include "task.h"
-#include <list>
 
 namespace coro
 {
@@ -38,10 +38,10 @@ public:
         {
             int* fd = m_fd_list.front();
             m_fd_list.pop_front();
-            return {fd, [this](auto ptr) {Release(ptr);}};
+            return {fd, [this](auto ptr) { Release(ptr); }};
         }
         int* fd = new int(eventfd(0, 0));
-        return {fd, [this](auto ptr) {Release(ptr);}};
+        return {fd, [this](auto ptr) { Release(ptr); }};
     }
 
 private:
