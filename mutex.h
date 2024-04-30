@@ -36,13 +36,21 @@ private:
 class Mutex
 {
 public:
+    Mutex()
+    {
+        m_fd = eventfd(0, 0);
+    }
+
+    ~Mutex()
+    {
+        close(m_fd);
+    }
     /**
      * @brief 上锁
      * @return 锁的RAII对象
      */
     Task<LockGuard> Lock()
     {
-        fd_t fd;
         do
         {
             {
@@ -52,16 +60,9 @@ public:
                     m_is_lock = true;
                     break;
                 }
-
-                if (!fd)
-                {
-                    fd = m_fd_mgr.Acquire();
-                    m_waiting_fd.emplace(*fd);
-                }
             }
-            co_await EventFdAwaiter(*fd);
+            co_await EventFdAwaiter(m_fd);
         } while (true);
-        m_waiting_fd.erase(*fd);
         co_return LockGuard([this] { Unlock(); });
     }
 
@@ -70,25 +71,16 @@ public:
      */
     void Unlock()
     {
-        std::lock_guard lk(m_mut);
-        if (!m_waiting_fd.empty())
-        {
-            int fd = *m_waiting_fd.begin();
-            eventfd_t val = 1;
-            eventfd_write(fd, val);
-        }
         m_is_lock = false;
     }
 
 private:
+    //! eventfd
+    int32_t m_fd = 0;
     //! 是否上锁
     std::atomic_bool m_is_lock = false;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
-    //! 正在等待的fd列表
-    std::set<int> m_waiting_fd;
-    //! 文件描述符管理
-    EventFdManager m_fd_mgr;
 };
 }  // namespace coro
 

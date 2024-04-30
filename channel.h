@@ -20,22 +20,25 @@ template <typename T>
 class Channel
 {
 public:
+    Channel()
+    {
+        m_fd = eventfd(0, 0);
+    }
+
+    ~Channel()
+    {
+        close(m_fd);
+    }
+
     /**
      * @brief 关闭channel，唤醒所有协程
      */
     void Close()
     {
-        if (m_is_close)
+        if (!m_is_close)
         {
-            return;
-        }
-
-        std::lock_guard lk(m_mut);
-        m_is_close = true;
-        eventfd_t val = 1;
-        for (auto& fd : m_waiting_fd)
-        {
-            eventfd_write(fd, val);
+            m_is_close = true;
+            eventfd_write(m_fd, 1);
         }
     }
 
@@ -53,7 +56,7 @@ public:
         }
         std::lock_guard lk(m_mut);
         m_data_queue.emplace(std::forward<DATA>(t));
-        Notify();
+        eventfd_write(m_fd, 1);
         return e_chan_success;
     }
 
@@ -69,7 +72,6 @@ public:
             co_return e_chan_close;
         }
 
-        fd_t fd;
         E_CHAN_STATUS s = e_chan_close;
         do
         {
@@ -82,40 +84,31 @@ public:
                     s = e_chan_success;
                     break;
                 }
-
-                if (!fd)
-                {
-                    fd = m_fd_mgr.Acquire();
-                    m_waiting_fd.emplace(*fd);
-                }
             }
-            co_await EventFdAwaiter(*fd);
+            co_await EventFdAwaiter(m_fd);
         } while (!m_is_close);
-        m_waiting_fd.erase(*fd);
+        //! 唤醒其他等待的协程退出
+        eventfd_write(m_fd, 1);
         co_return s;
     }
 
-private:
-    /**
-     * @brief 通知协程
+    /***
+     * @brief 获取数据
+     * @param t
+     * @return
      */
-    void Notify()
+    Task<E_CHAN_STATUS> operator>>(T& t)
     {
-        std::lock_guard lk(m_mut);
-        if (!m_waiting_fd.empty())
-        {
-            int fd = *m_waiting_fd.begin();
-            eventfd_t val = 1;
-            eventfd_write(fd, val);
-        }
+        co_return Pop(t);
     }
 
+private:
+    //! eventfd
+    int m_fd = 0;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
     //! 数据队列
     std::queue<std::optional<T>> m_data_queue;
-    //! 正在等待的fd列表
-    std::set<int> m_waiting_fd;
     //! 是否关闭
     std::atomic_bool m_is_close = false;
     //! 文件描述符管理
