@@ -23,7 +23,6 @@ coro::Task<void> CoWrite()
     }
 }
 
-
 TEST(coro, chan)
 {
     chan = std::make_shared<coro::Channel<int>>();
@@ -31,4 +30,12 @@ TEST(coro, chan)
     auto t2 = RunTask(&CoWrite);
     sleep(3);
     chan->Close();
+}
+
+TEST(coro, chan2)
+{
+    auto ch = std::make_shared<coro::Channel<Data>>();
+    ch->Push(Data());
+    Data d;
+    ch->Push(d);
 }

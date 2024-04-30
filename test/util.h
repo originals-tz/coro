@@ -39,4 +39,24 @@ std::jthread RunTask(coro::Task<void>(* func)())
     return t1;
 }
 
+struct Data
+{
+    Data() = default;
+    Data(Data&& d) { std::cout << "move constructor" << std::endl; }
+
+    Data& operator=(Data&& d) noexcept
+    {
+        std::cout << "move op" << std::endl;
+        return *this;
+    }
+
+    Data(const Data& d) { std::cout << "copy constructor" << std::endl; }
+
+    Data& operator=(const Data& d)
+    {
+        std::cout << "copy op" << std::endl;
+        return *this;
+    }
+};
+
 #endif  // CORO_UTIL_H

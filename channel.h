@@ -44,29 +44,15 @@ public:
      * @param t 数据
      * @return 是否成功添加
      */
-    E_CHAN_STATUS Push(T&& t)
+    template <class DATA>
+    E_CHAN_STATUS Push(DATA&& t)
     {
         if (m_is_close)
         {
             return e_chan_close;
         }
-        m_data_queue.push(std::move(t));
-        Notify();
-        return e_chan_success;
-    }
-
-    /***
-     * @brief 添加一个数据
-     * @param t 数据
-     * @return 是否成功添加
-     */
-    E_CHAN_STATUS Push(const T& t)
-    {
-        if (m_is_close)
-        {
-            return e_chan_close;
-        }
-        m_data_queue.push(t);
+        std::lock_guard lk(m_mut);
+        m_data_queue.emplace(std::forward<DATA>(t));
         Notify();
         return e_chan_success;
     }
