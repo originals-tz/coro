@@ -2,10 +2,11 @@
 #define CORO_THREAD_POOL_H
 
 #include <event.h>
+#include <sys/eventfd.h>
 #include <thread>
 #include <utility>
+#include "eventfd.h"
 #include "scheduler.h"
-#include <sys/eventfd.h>
 
 namespace coro
 {
@@ -14,7 +15,7 @@ struct Context
 public:
     Context()
     {
-        m_fd = eventfd(0, 0);
+        m_fd = Eventfd::Get();
     }
 
     ~Context()

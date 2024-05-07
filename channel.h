@@ -18,7 +18,10 @@ class Channel
 public:
     Channel()
     {
-        m_fd = eventfd(0, 0);
+        m_fd = Eventfd::Get();
+        int flags = fcntl(m_fd, F_GETFL, 0);
+        flags |= O_NONBLOCK;
+        fcntl(m_fd, F_SETFL, flags);
     }
 
     ~Channel()
@@ -166,7 +169,7 @@ class Select
 public:
     Select()
     {
-        m_fd = eventfd(0, 0);
+        m_fd = Eventfd::Get();
     }
 
     ~Select()

@@ -38,7 +38,7 @@ class Mutex
 public:
     Mutex()
     {
-        m_fd = eventfd(0, 0);
+        m_fd = Eventfd::Get();
     }
 
     ~Mutex()

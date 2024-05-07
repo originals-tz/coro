@@ -14,6 +14,18 @@ namespace coro
 
 using fd_t = std::unique_ptr<int, std::function<void(int*)>>;
 
+struct Eventfd
+{
+    static int Get()
+    {
+        int efd = eventfd(0,0);
+        int flags = fcntl(efd, F_GETFL, 0);
+        flags |= O_NONBLOCK;
+        fcntl(efd, F_SETFL, flags);
+        return efd;
+    }
+};
+
 class EventFdManager
 {
 public:
@@ -40,7 +52,7 @@ public:
             m_fd_list.pop_front();
             return {fd, [this](auto ptr) { Release(ptr); }};
         }
-        int* fd = new int(eventfd(0, 0));
+        int* fd = new int(Eventfd::Get());
         return {fd, [this](auto ptr) { Release(ptr); }};
     }
 
