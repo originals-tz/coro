@@ -54,6 +54,7 @@ public:
         }
         std::lock_guard lk(m_mut);
         m_data_queue.emplace(std::forward<DATA>(t));
+        m_data_count++;
         eventfd_write(m_fd, 1);
         eventfd_write(m_select_fd, 1);
         return true;
@@ -80,6 +81,7 @@ public:
                 {
                     t = std::move(m_data_queue.front().value());
                     m_data_queue.pop();
+                    m_data_count--;
                     s = true;
                     break;
                 }
@@ -108,6 +110,7 @@ public:
         {
             t = std::move(m_data_queue.front().value());
             m_data_queue.pop();
+            m_data_count--;
             return true;
         }
         return false;
@@ -135,7 +138,17 @@ public:
     {
         return m_is_close;
     }
+
+    /**
+     * @brief 是否为空
+     * @return
+     */
+    bool IsEmpty()
+    {
+        return m_data_count == 0;
+    }
 private:
+    std::atomic_size_t m_data_count = 0;
     //! eventfd
     int m_fd = 0;
     //! 额外的eventfd
@@ -170,6 +183,11 @@ public:
     template <typename... CHANNEL>
     coro::Task<bool> operator()(CHANNEL&&... chan)
     {
+        if (!(... && chan.IsEmpty()))
+        {
+            co_return true;
+        }
+
         if (!(... && chan.BindSelect(m_fd)))
         {
             co_return false;

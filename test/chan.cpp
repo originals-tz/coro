@@ -72,7 +72,7 @@ coro::Task<void> WriteVal()
     for (int i = 0; i < 10; i++)
     {
         ch2.Push(i);
-        co_await coro::Sleep(0, 200);
+        co_await coro::Sleep(0, 500);
     }
     co_return;
 }
@@ -82,7 +82,6 @@ coro::Task<void> WriteStr()
     for (int i = 0; i < 10; i++)
     {
         ch3.Push(std::to_string(i));
-        co_await coro::Sleep(0, 200);
     }
     co_return;
 }
