@@ -33,6 +33,7 @@ public:
     {
         if (!m_is_close)
         {
+            std::lock_guard lk(m_mut);
             m_is_close = true;
             eventfd_write(m_fd, 1);
             eventfd_write(m_select_fd, 1);
@@ -115,9 +116,15 @@ public:
     /**
      * @brief 设置额外的eventfd用于通知
      */
-    void BindSelect(int fd)
+    bool BindSelect(int fd)
     {
+        if (m_is_close)
+        {
+            return false;
+        }
+        std::lock_guard lk(m_mut);
         m_select_fd = fd;
+        return true;
     }
 
     /**
@@ -132,7 +139,7 @@ private:
     //! eventfd
     int m_fd = 0;
     //! 额外的eventfd
-    std::atomic_int m_select_fd = -1;
+    int m_select_fd = -1;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
     //! 数据队列
@@ -163,13 +170,10 @@ public:
     template <typename... CHANNEL>
     coro::Task<bool> operator()(CHANNEL&&... chan)
     {
-        // 如果channel全部关闭，那么退出
-        if ((... && chan.IsClose()))
+        if (!(... && chan.BindSelect(m_fd)))
         {
             co_return false;
         }
-
-        (chan.BindSelect(m_fd), ...);
         co_await EventFdAwaiter(m_fd);
         co_return !(... && chan.IsClose());
     }
