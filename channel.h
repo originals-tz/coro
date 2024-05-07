@@ -183,14 +183,13 @@ public:
     template <typename... CHANNEL>
     coro::Task<bool> operator()(CHANNEL&&... chan)
     {
-        if (!(... && chan.IsEmpty()))
-        {
-            co_return true;
-        }
-
         if (!(... && chan.BindSelect(m_fd)))
         {
             co_return false;
+        }
+        if (!(... && chan.IsEmpty()))
+        {
+            co_return true;
         }
         co_await EventFdAwaiter(m_fd);
         co_return !(... && chan.IsClose());
