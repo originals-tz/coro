@@ -14,14 +14,14 @@ public:
 
     /**
      * @brief co_await执行后，首先调用这个函数，返回false, 则暂停协程，执行await_suspend
-     * @return
+     * @return 返回false，挂起协程
      */
     bool await_ready() const { return false; }
 
     /**
      * @brief 在此进行业务处理
-     * @tparam T
-     * @param handle
+     * @tparam T 类型
+     * @param handle 协程句柄
      */
     template <typename T>
     void await_suspend(T handle)
@@ -72,8 +72,17 @@ public:
     BaseAwaiter() = default;
     virtual ~BaseAwaiter() = default;
 
+    /**
+     * @brief co_await执行后，首先调用这个函数，返回false, 则暂停协程，执行await_suspend
+     * @return 返回false，挂起协程
+     */
     bool await_ready() const { return false; }
 
+    /**
+     * @brief 在此进行业务处理
+     * @tparam T 类型
+     * @param handle 协程句柄
+     */
     template <typename T>
     void await_suspend(T handle)
     {
@@ -81,10 +90,19 @@ public:
         Handle();
     }
 
+    /**
+     * @brief 调用结束后，返回空
+     */
     void await_resume() {}
 
+    /**
+     * @brief 业务处理
+     */
     virtual void Handle() {}
 
+    /**
+     * @brief 恢复协程
+     */
     void Resume()
     {
         if (m_resume)
@@ -94,6 +112,7 @@ public:
     }
 
 private:
+    //! 恢复函数
     std::function<void()> m_resume;
 };
 

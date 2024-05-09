@@ -17,6 +17,7 @@ c0 <- c1 <- c2 <- c3
 
 c0 为第一个协程，在外部持有句柄, 需要手动释放
 ```
+
 ## Task & CoTask
 
 `coro::Task<T>` 是协程的封装, 当一个函数的返回值为`coro::Task<T>`, 将其视为一个协程
@@ -67,7 +68,6 @@ Awaiter是`co_await`的操作对象 ,一般会将一些需要等待的操作进�
 
 例如`sleep`, 可以将`sleep`封装成一个`awaiter`, 使用libevent中的超时任务实现一个异步的sleep
 
-
 ```cpp
 #include "awaiter.h"
 #include "scheduler.h"
@@ -100,6 +100,7 @@ private:
     event* m_event = nullptr;
 };
 ```
+
 在程序中进行异步的等待，这种操作可以用于轮询接口的等待，例如mysql的异步接口，在轮询过程中进行sleep，让出cpu处理其他事件
 
 ```cpp
@@ -117,6 +118,7 @@ private:
 ```
 
 ## 其他组件
+
 - `coro::Sleep` : sleep的异步版本
 - `coro::Channel<T>` : 在协程与协程，协程与线程间交换数据
 - `coro::Mutex` : 互斥锁, 在协程中使用

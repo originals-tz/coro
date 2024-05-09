@@ -9,7 +9,7 @@ namespace coro
 class Sleep : public coro::BaseAwaiter<void>
 {
 public:
-    Sleep(int sec, int ms = 0)
+    explicit Sleep(int sec, int ms = 0)
         : m_sec(sec)
         , m_usec(ms * 1000)
     {}

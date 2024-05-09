@@ -35,6 +35,7 @@ std::jthread RunTask(coro::Task<void>(* func)())
         event_base_once(base, -1, EV_TIMEOUT, AddTask, &ctx, &tv);
         event_base_dispatch(base);
         event_base_free(base);
+        std::cout << "task_count : " << exec.GetTaskCount() << std::endl;
     });
     return t1;
 }

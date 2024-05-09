@@ -14,18 +14,6 @@ namespace coro
 
 using fd_t = std::unique_ptr<int, std::function<void(int*)>>;
 
-struct Eventfd
-{
-    static int Get()
-    {
-        int efd = eventfd(0,0);
-        int flags = fcntl(efd, F_GETFL, 0);
-        flags |= O_NONBLOCK;
-        fcntl(efd, F_SETFL, flags);
-        return efd;
-    }
-};
-
 class EventFdManager
 {
 public:
@@ -52,7 +40,7 @@ public:
             m_fd_list.pop_front();
             return {fd, [this](auto ptr) { Release(ptr); }};
         }
-        int* fd = new int(Eventfd::Get());
+        int* fd = new int(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK));
         return {fd, [this](auto ptr) { Release(ptr); }};
     }
 
@@ -84,7 +72,7 @@ public:
     {}
 
     /**
-     * @brief 注册可读事件
+     * @brief 注册fd可读事件
      */
     void Handle() override
     {
@@ -95,8 +83,8 @@ public:
 
 private:
     /**
-     * @brief 事件回调
-     * @param arg
+     * @brief fd可读回调
+     * @param arg 传递this指针
      */
     static void OnRead(evutil_socket_t, short, void* arg)
     {

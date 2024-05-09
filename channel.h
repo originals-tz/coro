@@ -17,20 +17,13 @@ class Channel
 {
 public:
     Channel()
-    {
-        m_fd = Eventfd::Get();
-        int flags = fcntl(m_fd, F_GETFL, 0);
-        flags |= O_NONBLOCK;
-        fcntl(m_fd, F_SETFL, flags);
-    }
+        : m_fd(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK))
+    {}
 
-    ~Channel()
-    {
-        close(m_fd);
-    }
+    ~Channel() { close(m_fd); }
 
     /**
-     * @brief 关闭channel，唤醒所有协程
+     * @brief 关闭channel，唤醒协程
      */
     void Close()
     {
@@ -46,7 +39,7 @@ public:
     /**
      * @brief 添加一个数据
      * @param t 数据
-     * @return 是否成功添加
+     * @return 添加成功后返回true
      */
     template <class DATA>
     bool Push(DATA&& t)
@@ -65,8 +58,8 @@ public:
 
     /**
      * @brief 获取一个数据
-     * @param t
-     * @return
+     * @param t 数据引用
+     * @return 获取成功后返回true
      */
     Task<bool> Pop(T& t)
     {
@@ -98,8 +91,8 @@ public:
 
     /**
      * @brief 尝试获取数据
-     * @param t
-     * @return
+     * @param t 数据引用
+     * @return 获取成功后返回true
      */
     bool TryPop(T& t)
     {
@@ -120,7 +113,9 @@ public:
     }
 
     /**
-     * @brief 设置额外的eventfd用于通知
+     * @brief 绑定select
+     * @param fd select的fd
+     * @return 绑定成功后返回true
      */
     bool BindSelect(int fd)
     {
@@ -134,27 +129,22 @@ public:
     }
 
     /**
-     * @brief 是否关闭
-     * @return
+     * @brief 判断channel是否关闭
+     * @return channel关闭返回true
      */
-    bool IsClose()
-    {
-        return m_is_close;
-    }
+    bool IsClose() { return m_is_close; }
 
     /**
-     * @brief 是否为空
-     * @return
+     * @brief 判断数据队列是否为空
+     * @return 数据队列为空返回true
      */
-    bool IsEmpty()
-    {
-        return m_data_count == 0;
-    }
+    bool IsEmpty() { return m_data_count == 0; }
+
 private:
     std::atomic_size_t m_data_count = 0;
-    //! eventfd
-    int m_fd = 0;
-    //! 额外的eventfd
+    //! 通知channel的fd
+    int m_fd = -1;
+    //! 通知select的fd
     int m_select_fd = -1;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
@@ -168,20 +158,16 @@ class Select
 {
 public:
     Select()
-    {
-        m_fd = Eventfd::Get();
-    }
+        : m_fd(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK))
+    {}
 
-    ~Select()
-    {
-        close(m_fd);
-    }
+    ~Select() { close(m_fd); }
 
     /**
      * @brief 等待某个channel的数据
-     * @tparam CHANNEL
-     * @param chan
-     * @return
+     * @tparam CHANNEL channel类型
+     * @param chan 多个channel
+     * @return 某个channel关闭，返回false, 某个channel存在数据，返回true
      */
     template <typename... CHANNEL>
     coro::Task<bool> operator()(CHANNEL&&... chan)
@@ -199,6 +185,7 @@ public:
     }
 
 private:
+    //! 用于等待的文件描述符
     int32_t m_fd = -1;
 };
 }  // namespace coro

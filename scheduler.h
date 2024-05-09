@@ -51,7 +51,7 @@ public:
 class SimpleTask : public CoTask
 {
 public:
-    SimpleTask(const std::function<Task<void>()>& task)
+    explicit SimpleTask(const std::function<Task<void>()>& task)
         : m_user_task(task)
     {}
 
@@ -73,7 +73,7 @@ private:
 class Executor
 {
 public:
-    Executor(event_base* base)
+    explicit Executor(event_base* base)
         : m_base(base)
     {}
     /**

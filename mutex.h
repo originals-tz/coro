@@ -37,14 +37,10 @@ class Mutex
 {
 public:
     Mutex()
-    {
-        m_fd = Eventfd::Get();
-    }
+        : m_fd(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK))
+    {}
 
-    ~Mutex()
-    {
-        close(m_fd);
-    }
+    ~Mutex() { close(m_fd); }
     /**
      * @brief 上锁
      * @return 锁的RAII对象
@@ -69,10 +65,7 @@ public:
     /**
      * @brief 解锁
      */
-    void Unlock()
-    {
-        m_is_lock = false;
-    }
+    void Unlock() { m_is_lock = false; }
 
 private:
     //! eventfd

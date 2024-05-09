@@ -14,32 +14,22 @@ struct Context
 {
 public:
     Context()
-    {
-        m_fd = Eventfd::Get();
-    }
+        : m_fd(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK))
+    {}
 
-    ~Context()
-    {
-        close(m_fd);
-    }
+    ~Context() { close(m_fd); }
 
     /**
      * @brief 获取文件描述符
      * @return
      */
-    int GetFD() const
-    {
-        return m_fd;
-    }
+    int GetFD() const { return m_fd; }
 
     /**
      * @brief 是否停止
      * @return
      */
-    bool IsStop()
-    {
-        return m_stop;
-    }
+    bool IsStop() { return m_stop; }
 
     /**
      * @brief 停止
@@ -76,6 +66,7 @@ public:
         m_task_queue.emplace(task);
         eventfd_write(m_fd, 1);
     }
+
 private:
     //! 用于通知的文件描述符
     int m_fd = -1;
@@ -94,8 +85,7 @@ public:
         : m_id(id)
         , m_ctx(std::move(ctx))
         , m_thread(&Worker::Run, this)
-    {
-    }
+    {}
 
 private:
     /**
@@ -198,6 +188,7 @@ public:
         m_ctx_vect[m_idx]->Push(task);
         m_idx = (m_idx + 1) % m_num;
     }
+
 private:
     //! 互斥锁
     std::mutex m_mut;
@@ -210,6 +201,6 @@ private:
     //! 工作线程
     std::vector<std::unique_ptr<Worker>> m_thread_pool;
 };
-}
+}  // namespace coro
 
 #endif  // CORO_THREAD_POOL_H

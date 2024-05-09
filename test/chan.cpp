@@ -97,3 +97,11 @@ TEST(coro, chan3)
     ch2.Close();
     ch3.Close();
 }
+
+TEST(coro, test2)
+{
+    int fd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+    eventfd_t val;
+    int ret = eventfd_read(fd, &val);
+    std::cout << ret << std::endl;
+}
