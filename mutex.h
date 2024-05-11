@@ -1,5 +1,6 @@
 #ifndef CORO_MUTEX_H
 #define CORO_MUTEX_H
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <set>
