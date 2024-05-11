@@ -6,7 +6,7 @@
 #include <utility>
 #include "awaiter.h"
 #include "eventfd.h"
-#include "scheduler.h"
+#include "executor.h"
 #include "task.h"
 
 namespace coro

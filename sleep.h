@@ -2,7 +2,7 @@
 #define CORO_SLEEP_H
 
 #include "awaiter.h"
-#include "scheduler.h"
+#include "executor.h"
 
 namespace coro
 {
@@ -14,6 +14,9 @@ public:
         , m_usec(ms * 1000)
     {}
 
+    /**
+     * @brief 注册一个超时任务
+     */
     void Handle() override
     {
         timeval tv{.tv_sec = m_sec, .tv_usec = m_usec};
@@ -22,16 +25,22 @@ public:
     }
 
 private:
+    /**
+     * @brief 超时后唤醒协程
+     * @param arg this指针
+     */
     static void OnTimeout(evutil_socket_t, short, void* arg)
     {
         auto pthis = static_cast<Sleep*>(arg);
-        evtimer_del(pthis->m_event);
         event_free(pthis->m_event);
         pthis->Resume();
     }
 
+    //! 超时秒数
     int m_sec = 0;
+    //! 超时微秒
     int m_usec = 0;
+    //! 超时事件
     event* m_event = nullptr;
 };
 

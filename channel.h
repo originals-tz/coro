@@ -1,12 +1,13 @@
 #ifndef CORO_CHANNEL_H
 #define CORO_CHANNEL_H
 
+#include <atomic>
 #include <mutex>
 #include <optional>
 #include <set>
 #include "awaiter.h"
 #include "eventfd.h"
-#include "scheduler.h"
+#include "executor.h"
 #include "task.h"
 
 namespace coro

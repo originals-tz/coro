@@ -6,7 +6,7 @@
 #include <thread>
 #include <utility>
 #include "eventfd.h"
-#include "scheduler.h"
+#include "executor.h"
 
 namespace coro
 {

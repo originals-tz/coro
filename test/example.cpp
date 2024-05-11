@@ -1,6 +1,6 @@
 #include <gtest/gtest.h>
 #include "awaiter.h"
-#include "scheduler.h"
+#include "executor.h"
 #include "task.h"
 
 event_base* base = nullptr;

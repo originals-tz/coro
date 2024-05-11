@@ -1,7 +1,7 @@
 #ifndef CORO_AWAITER_H
 #define CORO_AWAITER_H
 
-#include "scheduler.h"
+#include "executor.h"
 
 namespace coro
 {

@@ -2,8 +2,8 @@
 #define CORO_UTIL_H
 
 #include <thread>
+#include "executor.h"
 #include "task.h"
-#include "scheduler.h"
 
 struct TaskCtx
 {
