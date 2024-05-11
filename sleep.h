@@ -10,18 +10,28 @@ class Sleep : public coro::BaseAwaiter<void>
 {
 public:
     explicit Sleep(int sec, int ms = 0)
-        : m_sec(sec)
-        , m_usec(ms * 1000)
-    {}
+        : m_tv({.tv_sec = sec, .tv_usec = ms * 1000})
+    {
+    }
+
+    ~Sleep() override
+    {
+        if (m_event)
+        {
+            event_free(m_event);
+        }
+    }
 
     /**
      * @brief 注册一个超时任务
      */
     void Handle() override
     {
-        timeval tv{.tv_sec = m_sec, .tv_usec = m_usec};
-        m_event = evtimer_new(Executor::LocalEventBase(), OnTimeout, this);
-        evtimer_add(m_event, &tv);
+        if (!m_event)
+        {
+            m_event = evtimer_new(Executor::LocalEventBase(), OnTimeout, this);
+        }
+        evtimer_add(m_event, &m_tv);
     }
 
 private:
@@ -32,14 +42,10 @@ private:
     static void OnTimeout(evutil_socket_t, short, void* arg)
     {
         auto pthis = static_cast<Sleep*>(arg);
-        event_free(pthis->m_event);
         pthis->Resume();
     }
 
-    //! 超时秒数
-    int m_sec = 0;
-    //! 超时微秒
-    int m_usec = 0;
+    timeval m_tv;
     //! 超时事件
     event* m_event = nullptr;
 };

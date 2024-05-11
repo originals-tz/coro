@@ -70,6 +70,7 @@ public:
         }
 
         bool s = false;
+        EventFdAwaiter awaiter(m_fd);
         do
         {
             {
@@ -83,7 +84,7 @@ public:
                     break;
                 }
             }
-            co_await EventFdAwaiter(m_fd);
+            co_await awaiter;
         } while (!m_is_close);
         //! 唤醒其他等待的协程退出
         eventfd_write(m_fd, 1);
@@ -160,6 +161,7 @@ class Select
 public:
     Select()
         : m_fd(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK))
+        , m_awaiter(m_fd)
     {}
 
     ~Select() { close(m_fd); }
@@ -181,13 +183,15 @@ public:
         {
             co_return true;
         }
-        co_await EventFdAwaiter(m_fd);
+        co_await m_awaiter;
         co_return !(... && chan.IsClose());
     }
 
 private:
     //! 用于等待的文件描述符
     int32_t m_fd = -1;
+    //! 等待体
+    EventFdAwaiter m_awaiter;
 };
 }  // namespace coro
 

@@ -47,6 +47,7 @@ public:
      */
     Task<LockGuard> Lock()
     {
+        EventFdAwaiter awaiter(m_fd);
         do
         {
             {
@@ -57,7 +58,7 @@ public:
                     break;
                 }
             }
-            co_await EventFdAwaiter(m_fd);
+            co_await awaiter;
         } while (true);
         co_return LockGuard([this] { Unlock(); });
     }

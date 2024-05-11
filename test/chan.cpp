@@ -69,10 +69,11 @@ coro::Task<void> SelectRead()
 
 coro::Task<void> WriteVal()
 {
+    coro::Sleep s(0, 500);
     for (int i = 0; i < 10; i++)
     {
         ch2.Push(i);
-        co_await coro::Sleep(0, 500);
+        co_await s;
     }
     co_return;
 }

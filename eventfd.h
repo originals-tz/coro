@@ -19,13 +19,24 @@ public:
         : m_event_fd(fd)
     {}
 
+    ~EventFdAwaiter() override
+    {
+        if (m_event)
+        {
+            event_free(m_event);
+        }
+    }
+
     /**
      * @brief 注册fd可读事件
      */
     void Handle() override
     {
-        auto base = Executor::LocalEventBase();
-        m_event = event_new(base, m_event_fd, EV_READ, OnRead, this);
+        if (!m_event)
+        {
+            auto base = Executor::LocalEventBase();
+            m_event = event_new(base, m_event_fd, EV_READ, OnRead, this);
+        }
         event_add(m_event, nullptr);
     }
 
@@ -39,7 +50,6 @@ private:
         auto pthis = static_cast<EventFdAwaiter*>(arg);
         eventfd_t val = 0;
         eventfd_read(pthis->m_event_fd, &val);
-        event_free(pthis->m_event);
         pthis->Resume();
     }
 
