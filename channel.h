@@ -33,7 +33,10 @@ public:
             std::lock_guard lk(m_mut);
             m_is_close = true;
             eventfd_write(m_fd, 1);
-            eventfd_write(m_select_fd, 1);
+            for (auto& fd : m_select_fd)
+            {
+                eventfd_write(fd, 1);
+            }
         }
     }
 
@@ -53,7 +56,10 @@ public:
         m_data_queue.emplace(std::forward<DATA>(t));
         m_data_count++;
         eventfd_write(m_fd, 1);
-        eventfd_write(m_select_fd, 1);
+        for (auto& fd : m_select_fd)
+        {
+            eventfd_write(fd, 1);
+        }
         return true;
     }
 
@@ -126,8 +132,18 @@ public:
             return false;
         }
         std::lock_guard lk(m_mut);
-        m_select_fd = fd;
+        m_select_fd.emplace(fd);
         return true;
+    }
+
+    /**
+     * @brief 解绑select fd
+     * @param fd
+     */
+    void UnbindSelect(int fd)
+    {
+        std::lock_guard lk(m_mut);
+        m_select_fd.erase(fd);
     }
 
     /**
@@ -147,7 +163,7 @@ private:
     //! 通知channel的fd
     int m_fd = -1;
     //! 通知select的fd
-    int m_select_fd = -1;
+    std::set<int> m_select_fd;
     //! 可重入的互斥锁
     std::recursive_mutex m_mut;
     //! 数据队列
@@ -181,9 +197,11 @@ public:
         }
         if (!(... && chan.IsEmpty()))
         {
+            (chan.UnbindSelect(m_fd), ...);
             co_return true;
         }
         co_await m_awaiter;
+        (chan.UnbindSelect(m_fd), ...);
         co_return !(... && chan.IsClose());
     }
 
