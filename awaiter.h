@@ -35,12 +35,6 @@ public:
     }
 
     /**
-     * @brief 调用结束后，返回值
-     * @return 返回值
-     */
-    RET await_resume() { return m_ret.value(); }
-
-    /**
      * @brief 业务处理
      */
     virtual void Handle() {}
@@ -55,10 +49,6 @@ public:
             m_resume();
         }
     }
-
-protected:
-    //! 存放返回值，在co_await结束后返回给外部, 返回值要由用户手动设置
-    std::optional<RET> m_ret;
 
 private:
     //! 恢复函数
@@ -115,13 +105,16 @@ public:
         }
     }
 
-    event_base* GetBase()
+    /**
+     * @brief 获取eventbase
+     */
+    event_base* EventBase()
     {
-        assert(m_base);
         return m_base;
     }
 
 private:
+    //! 事件循环
     event_base* m_base = nullptr;
     //! 恢复函数
     std::function<void()> m_resume;

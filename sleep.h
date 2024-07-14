@@ -31,7 +31,7 @@ public:
     {
         if (!m_event)
         {
-            m_event = evtimer_new(GetBase(), OnTimeout, this);
+            m_event = evtimer_new(EventBase(), OnTimeout, this);
         }
         evtimer_add(m_event, &m_tv);
     }

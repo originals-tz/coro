@@ -46,7 +46,7 @@ public:
      * @brief 上锁
      * @return 锁的RAII对象
      */
-    Task<LockGuard> Lock()
+    Task<LockGuard&&> Lock()
     {
         EventFdAwaiter awaiter(m_fd);
         do
@@ -67,7 +67,11 @@ public:
     /**
      * @brief 解锁
      */
-    void Unlock() { m_is_lock = false; }
+    void Unlock()
+    {
+        eventfd_write(m_fd, 1);
+        m_is_lock = false;
+    }
 
 private:
     //! eventfd

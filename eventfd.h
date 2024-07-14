@@ -34,7 +34,7 @@ public:
     {
         if (!m_event)
         {
-            m_event = event_new(GetBase(), m_event_fd, EV_READ, OnRead, this);
+            m_event = event_new(EventBase(), m_event_fd, EV_READ, OnRead, this);
         }
         event_add(m_event, nullptr);
     }

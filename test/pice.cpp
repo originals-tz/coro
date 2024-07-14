@@ -4,6 +4,10 @@
 
 using namespace coro;
 
+Task<int> Test2()
+{
+    co_return 1;
+}
 
 Task<void> Test1()
 {

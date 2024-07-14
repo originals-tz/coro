@@ -5,14 +5,24 @@
 
 coro::Mutex mut;
 
+std::mutex mut2;
+
+void Log(auto&&... data)
+{
+    mut2.lock();
+    ((std::cout << (data)), ...) << std::endl;
+    mut2.unlock();
+}
+
 coro::Task<void> DoSomething()
 {
     auto id = std::this_thread::get_id();
     for (int i = 0; i < 10; i++)
     {
-        co_await coro::Sleep(0, 200);
+        Log(id, " in");
+        co_await coro::Sleep(1, 200);
         coro::LockGuard lk = co_await mut.Lock();
-        std::cout << id << "do " << std::endl;
+        Log(id, " out");
     }
 }
 
