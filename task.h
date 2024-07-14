@@ -14,7 +14,7 @@
 namespace coro
 {
 
-struct State
+struct Context
 {
     event_base* m_base = nullptr;
     std::function<void()> m_destroy;
@@ -39,7 +39,7 @@ struct PromiseBase
             }
             else
             {
-                promise.m_state.lock()->m_destroy();
+                promise.m_ctx.lock()->m_destroy();
                 return std::noop_coroutine();
             }
         }
@@ -53,13 +53,13 @@ struct PromiseBase
 
     void SetContinuation(std::coroutine_handle<> continuation) noexcept { m_continuation = continuation; }
 
-    void SetState(std::weak_ptr<State> state) { m_state = std::move(state); }
+    void SetContext(std::weak_ptr<Context> ctx) { m_ctx = std::move(ctx); }
 
-    std::weak_ptr<State> GetState() { return m_state; }
+    std::weak_ptr<Context> GetContext() { return m_ctx; }
 
 protected:
     std::coroutine_handle<> m_continuation{nullptr};
-    std::weak_ptr<State> m_state;
+    std::weak_ptr<Context> m_ctx;
 };
 
 template <typename return_type>
@@ -248,7 +248,7 @@ public:
         std::coroutine_handle<> await_suspend(std::coroutine_handle<coro::Promise<T>> awaiting_coroutine) noexcept
         {
             m_coroutine.promise().SetContinuation(awaiting_coroutine);
-            m_coroutine.promise().SetState(awaiting_coroutine.promise().GetState());
+            m_coroutine.promise().SetContext(awaiting_coroutine.promise().GetContext());
             return m_coroutine;
         }
 
@@ -260,17 +260,17 @@ public:
 
     Task() noexcept
         : m_coroutine(nullptr)
-        , m_state(std::make_shared<State>())
+        , m_ctx(std::make_shared<Context>())
     {}
 
     explicit Task(coroutine_handle handle)
         : m_coroutine(handle)
-        , m_state(std::make_shared<State>())
+        , m_ctx(std::make_shared<Context>())
     {}
 
     Task(Task&& other) noexcept
         : m_coroutine(std::exchange(other.m_coroutine, nullptr))
-        , m_state(std::exchange(other.m_state, nullptr))
+        , m_ctx(std::exchange(other.m_ctx, nullptr))
     {}
 
     ~Task()
@@ -344,27 +344,27 @@ public:
     auto promise() && -> promise_type&& { return std::move(m_coroutine.promise()); }
 
     auto handle() -> coroutine_handle { return m_coroutine; }
-    std::shared_ptr<State> get_state() { return m_state; }
-    void SetEventBase(event_base* base) { m_state->m_base = base; }
-    void SetDestroy(std::function<void()> destroy) { m_state->m_destroy = std::move(destroy); }
+    std::shared_ptr<Context> GetContext() { return m_ctx; }
+    void SetEventBase(event_base* base) { m_ctx->m_base = base; }
+    void SetDestroy(std::function<void()> destroy) { m_ctx->m_destroy = std::move(destroy); }
 
 private:
     coroutine_handle m_coroutine{nullptr};
-    std::shared_ptr<State> m_state;
+    std::shared_ptr<Context> m_ctx;
 };
 
 template <typename return_type>
 inline auto Promise<return_type>::get_return_object() noexcept -> Task<return_type>
 {
     auto t = Task<return_type>{coroutine_handle::from_promise(*this)};
-    m_state = t.get_state();
+    m_ctx = t.GetContext();
     return t;
 }
 
 inline auto Promise<void>::get_return_object() noexcept -> Task<>
 {
     auto t = Task<>{coroutine_handle::from_promise(*this)};
-    m_state = t.get_state();
+    m_ctx = t.GetContext();
     return t;
 }
 

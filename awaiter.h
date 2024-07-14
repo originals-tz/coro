@@ -32,7 +32,13 @@ public:
     void await_suspend(T handle)
     {
         m_resume = [handle]() { handle.resume(); };
-        m_base = handle.promise().GetState().lock()->m_base;
+        auto ctx = handle.promise().GetContext().lock();
+        if (!ctx)
+        {
+            assert(false && "协程上下文为空");
+            return;
+        }
+        m_base = ctx->m_base;
         Handle();
     }
 
