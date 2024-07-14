@@ -1,7 +1,10 @@
 #ifndef CORO_AWAITER_H
 #define CORO_AWAITER_H
 
-#include "executor.h"
+#include <functional>
+#include <event2/event.h>
+#include <cassert>
+#include <optional>
 
 namespace coro
 {
@@ -27,7 +30,7 @@ public:
     void await_suspend(T handle)
     {
         // 将句柄绑定到恢复函数中
-        m_resume = [handle]() { Executor::ResumeCoroutine(handle); };
+        m_resume = [handle]() { handle.resume(); };
         Handle();
     }
 
@@ -86,7 +89,8 @@ public:
     template <typename T>
     void await_suspend(T handle)
     {
-        m_resume = [handle]() { Executor::ResumeCoroutine(handle); };
+        m_resume = [handle]() { handle.resume(); };
+        m_base = handle.promise().GetState().lock()->m_base;
         Handle();
     }
 
@@ -111,7 +115,14 @@ public:
         }
     }
 
+    event_base* GetBase()
+    {
+        assert(m_base);
+        return m_base;
+    }
+
 private:
+    event_base* m_base = nullptr;
     //! 恢复函数
     std::function<void()> m_resume;
 };

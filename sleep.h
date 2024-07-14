@@ -3,6 +3,8 @@
 
 #include "awaiter.h"
 #include "executor.h"
+#include "task.h"
+#include "event2/event.h"
 
 namespace coro
 {
@@ -29,7 +31,7 @@ public:
     {
         if (!m_event)
         {
-            m_event = evtimer_new(Executor::LocalEventBase(), OnTimeout, this);
+            m_event = evtimer_new(GetBase(), OnTimeout, this);
         }
         evtimer_add(m_event, &m_tv);
     }

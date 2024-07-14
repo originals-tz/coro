@@ -34,8 +34,7 @@ public:
     {
         if (!m_event)
         {
-            auto base = Executor::LocalEventBase();
-            m_event = event_new(base, m_event_fd, EV_READ, OnRead, this);
+            m_event = event_new(GetBase(), m_event_fd, EV_READ, OnRead, this);
         }
         event_add(m_event, nullptr);
     }
