@@ -27,10 +27,10 @@ struct PromiseBase
 {
     struct FinalAwaiter
     {
-        auto await_ready() const noexcept -> bool { return false; }
+        bool await_ready() const noexcept { return false; }
 
         template <typename promise_type>
-        auto await_suspend(std::coroutine_handle<promise_type> coroutine) noexcept -> std::coroutine_handle<>
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<promise_type> coroutine) noexcept
         {
             auto& promise = coroutine.promise();
             if (promise.m_continuation != nullptr)
@@ -44,18 +44,18 @@ struct PromiseBase
             }
         }
 
-        auto await_resume() noexcept -> void {}
+        void await_resume() noexcept {}
     };
 
-    auto initial_suspend() noexcept { return std::suspend_always{}; }
+    std::suspend_always initial_suspend() noexcept { return {}; }
 
-    auto final_suspend() noexcept { return FinalAwaiter(); }
+    FinalAwaiter final_suspend() noexcept { return {}; }
 
-    auto SetContinuation(std::coroutine_handle<> continuation) noexcept -> void { m_continuation = continuation; }
+    void SetContinuation(std::coroutine_handle<> continuation) noexcept { m_continuation = continuation; }
 
     void SetState(std::weak_ptr<State> state) { m_state = std::move(state); }
 
-    auto GetState() { return m_state; }
+    std::weak_ptr<State> GetState() { return m_state; }
 
 protected:
     std::coroutine_handle<> m_continuation{nullptr};
@@ -80,11 +80,11 @@ public:
     Promise() noexcept = default;
     ~Promise() = default;
 
-    auto get_return_object() noexcept -> task_type;
+    task_type get_return_object() noexcept;
 
     template <typename value_type>
         requires(return_type_is_reference and std::is_constructible_v<return_type, value_type &&>) or (not return_type_is_reference and std::is_constructible_v<stored_type, value_type &&>)
-    auto return_value(value_type&& value) -> void
+    void return_value(value_type&& value)
     {
         if constexpr (return_type_is_reference)
         {
@@ -97,7 +97,7 @@ public:
         }
     }
 
-    auto return_value(stored_type value) -> void
+    void return_value(stored_type value)
         requires(not return_type_is_reference)
     {
         if constexpr (std::is_move_constructible_v<stored_type>)
@@ -110,7 +110,7 @@ public:
         }
     }
 
-    auto unhandled_exception() noexcept -> void { new (&m_storage) variant_type(std::current_exception()); }
+    void unhandled_exception() noexcept { new (&m_storage) variant_type(std::current_exception()); }
 
     auto result() & -> decltype(auto)
     {
@@ -204,13 +204,13 @@ public:
     Promise() noexcept = default;
     ~Promise() = default;
 
-    auto get_return_object() noexcept -> task_type;
+    task_type get_return_object() noexcept;
 
-    auto return_void() noexcept -> void {}
+    void return_void() noexcept {}
 
-    auto unhandled_exception() noexcept -> void { m_exception_ptr = std::current_exception(); }
+    void unhandled_exception() noexcept { m_exception_ptr = std::current_exception(); }
 
-    auto result() -> void
+    void result()
     {
         if (m_exception_ptr)
         {
@@ -236,16 +236,16 @@ public:
             : m_coroutine(coroutine)
         {}
 
-        auto await_ready() const noexcept -> bool { return !m_coroutine || m_coroutine.done(); }
+        bool await_ready() const noexcept { return !m_coroutine || m_coroutine.done(); }
 
-        auto await_suspend(std::coroutine_handle<> awaiting_coroutine) noexcept -> std::coroutine_handle<>
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<> awaiting_coroutine) noexcept
         {
             m_coroutine.promise().SetContinuation(awaiting_coroutine);
             return m_coroutine;
         }
 
         template <class T>
-        auto await_suspend(std::coroutine_handle<coro::Promise<T>> awaiting_coroutine) noexcept -> std::coroutine_handle<>
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<coro::Promise<T>> awaiting_coroutine) noexcept
         {
             m_coroutine.promise().SetContinuation(awaiting_coroutine);
             m_coroutine.promise().SetState(awaiting_coroutine.promise().GetState());
@@ -261,14 +261,12 @@ public:
     Task() noexcept
         : m_coroutine(nullptr)
         , m_state(std::make_shared<State>())
-    {
-    }
+    {}
 
     explicit Task(coroutine_handle handle)
         : m_coroutine(handle)
         , m_state(std::make_shared<State>())
-    {
-    }
+    {}
 
     Task(Task&& other) noexcept
         : m_coroutine(std::exchange(other.m_coroutine, nullptr))
@@ -283,8 +281,7 @@ public:
         }
     }
 
-
-    auto operator=(Task&& other) noexcept -> Task&
+    Task& operator=(Task&& other) noexcept
     {
         if (std::addressof(other) != this)
         {
@@ -299,12 +296,9 @@ public:
         return *this;
     }
 
-    /**
-     * @return True if the task is in its final suspend or if the task has been destroyed.
-     */
-    auto is_ready() const noexcept -> bool { return m_coroutine == nullptr || m_coroutine.done(); }
+    bool is_ready() const noexcept { return m_coroutine == nullptr || m_coroutine.done(); }
 
-    auto resume() -> bool
+    bool resume()
     {
         if (!m_coroutine.done())
         {
@@ -313,7 +307,7 @@ public:
         return !m_coroutine.done();
     }
 
-    auto destroy() -> bool
+    bool destroy()
     {
         if (m_coroutine != nullptr)
         {
@@ -329,7 +323,7 @@ public:
     {
         struct awaitable : public awaitable_base
         {
-            auto await_resume() -> decltype(auto) { return this->m_coroutine.promise().result(); }
+            auto await_resume() { return this->m_coroutine.promise().result(); }
         };
 
         return awaitable{m_coroutine};
@@ -339,7 +333,7 @@ public:
     {
         struct awaitable : public awaitable_base
         {
-            auto await_resume() -> decltype(auto) { return std::move(this->m_coroutine.promise()).result(); }
+            auto await_resume() { return std::move(this->m_coroutine.promise()).result(); }
         };
 
         return awaitable{m_coroutine};
