@@ -40,8 +40,8 @@ public:
     Mutex()
         : m_fd(eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK))
     {}
-
     ~Mutex() { close(m_fd); }
+
     /**
      * @brief 上锁
      * @return 锁的RAII对象
@@ -78,8 +78,8 @@ private:
     int32_t m_fd = 0;
     //! 是否上锁
     std::atomic_bool m_is_lock = false;
-    //! 可重入的互斥锁
-    std::recursive_mutex m_mut;
+    //! 互斥锁
+    std::mutex m_mut;
 };
 }  // namespace coro
 

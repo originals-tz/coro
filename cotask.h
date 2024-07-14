@@ -31,27 +31,6 @@ public:
 /**
  * @brief 简单的协程任务，传入一个lambda即可执行，需要注意参数应按值复制
  */
-class SimpleTask : public CoTask
-{
-public:
-    explicit SimpleTask(const std::function<Task<void>()>& task)
-        : m_user_task(task)
-    {}
-
-    /**
-     * @brief 执行协程任务
-     * @return
-     */
-    Task<void> CoHandle() override
-    {
-        co_await m_user_task();
-        co_return;
-    }
-
-private:
-    //! 用户的任务
-    std::function<Task<void>()> m_user_task;
-};
 
 
 }

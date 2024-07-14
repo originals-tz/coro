@@ -32,7 +32,20 @@ public:
      * @brief 执行协程，参数应按值复制
      * @param task
      */
-    void RunTask(const std::function<Task<void>()>& task) { RunTask(std::make_shared<SimpleTask>(task)); }
+    void RunTask(const std::function<Task<void>()>& task)
+    {
+        struct T :  CoTask
+        {
+            T(const std::function<Task<void>()>& t) : m_user_task(t) {}
+            Task<void> CoHandle() override
+            {
+                co_await m_user_task();
+                co_return;
+            }
+            std::function<Task<void>()> m_user_task;
+        };
+        RunTask(std::make_shared<T>(task));
+    }
 
     /**
      * @brief 获取未释放的协程句柄数

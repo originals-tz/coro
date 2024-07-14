@@ -12,7 +12,7 @@
 
 namespace coro
 {
-class EventFdAwaiter : public coro::BaseAwaiter<void>
+class EventFdAwaiter : public coro::BaseAwaiter
 {
 public:
     explicit EventFdAwaiter(int fd)
