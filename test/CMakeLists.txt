@@ -16,20 +16,27 @@ link_directories("/usr/lib/aarch64-linux-gnu"
         "/usr/lib64/mysql")
 
 file(GLOB_RECURSE CPP_SRC_LIST ${CMAKE_CURRENT_LIST_DIR}/*.cpp)
+message(${CPP_SRC_LIST})
 foreach (v ${CPP_SRC_LIST})
     string(REGEX MATCH "test/.*" relative_path ${v})
     string(REGEX REPLACE "test/" "" target_name ${relative_path})
     string(REGEX REPLACE ".cpp" "" target_name ${target_name})
-    add_executable(${target_name}_test ${v} ${ECACHE_SOURCE})
+    add_executable(${target_name}_test ${v}
+            ../sleep.cpp
+            ../mutex.cpp
+            ../executor.cpp
+            ../eventfd.cpp
+            ../select.cpp
+            ../thread_pool.cpp)
     target_link_libraries(${target_name}_test
             event
             pthread
             gtest
             gtest_main
-#            mysqlclient
+            #            mysqlclient
     )
-#    target_compile_options(${target_name}_test PRIVATE -fsanitize=address -fno-omit-frame-pointer -fstack-protector-all)
-#    target_link_options(${target_name}_test PRIVATE -fsanitize=address)
+    #    target_compile_options(${target_name}_test PRIVATE -fsanitize=address -fno-omit-frame-pointer -fstack-protector-all)
+    #    target_link_options(${target_name}_test PRIVATE -fsanitize=address)
     add_test(NAME ${target_name}_test COMMAND ${target_name}_test
             WORKING_DIRECTORY ${PROJECT_SOURCE_DIR})
 endforeach ()

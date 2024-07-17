@@ -2,6 +2,7 @@
 #include <gtest/gtest.h>
 #include "sleep.h"
 #include "util.h"
+#include "select.h"
 
 std::shared_ptr<coro::Channel<int>> chan;
 
@@ -52,19 +53,12 @@ coro::Task<void> SelectRead()
 {
     int val;
     std::string str;
-
-    coro::Select select;
     do {
         if (ch2.TryPop(val))
         {
             std::cout << "read" << val << std::endl;
         }
-
-        if (ch3.TryPop(str))
-        {
-            std::cout << "read str" << str << std::endl;
-        }
-    } while (co_await select(ch2, ch3));
+    } while (co_await Select(ch2));
 }
 
 coro::Task<void> WriteVal()
@@ -74,6 +68,7 @@ coro::Task<void> WriteVal()
     {
         ch2.Push(i);
         co_await s;
+        std::cout << "write " << i << std::endl;
     }
     co_return;
 }
@@ -92,7 +87,6 @@ TEST(coro, chan3)
 {
     auto t1 = RunTask(&SelectRead);
     auto t2 = RunTask(&WriteVal);
-    auto t3 = RunTask(&WriteStr);
 
     sleep(3);
     ch2.Close();
@@ -105,4 +99,19 @@ TEST(coro, test2)
     eventfd_t val;
     int ret = eventfd_read(fd, &val);
     std::cout << ret << std::endl;
+}
+
+coro::Task<void> Tsleep()
+{
+    coro::Sleep s(0, 500);
+    for (int i = 0; i < 10; i++)
+    {
+        co_await s;
+        std::cout << "wake" << std::endl;
+    }
+}
+
+TEST(coro, sleep)
+{
+    auto t1 = RunTask(&Tsleep);
 }
