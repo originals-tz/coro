@@ -17,7 +17,7 @@ namespace coro
 struct Context
 {
     event_base* m_base = nullptr;
-    std::function<void()> m_destroy;
+    std::function<void()> m_destroy = []{};
 };
 
 template <typename T = void>
