@@ -8,7 +8,7 @@ MultiEventfd::MultiEventfd(std::vector<int32_t> fd_vect)
     : m_fd(std::move(fd_vect))
 {}
 
-MultiEventfd::~MultiEventfd() noexcept
+MultiEventfd::~MultiEventfd()
 {
     std::for_each(m_ev.begin(), m_ev.end(), [](event* e){ event_free(e); });
 }

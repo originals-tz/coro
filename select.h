@@ -10,7 +10,7 @@ namespace coro
 class MultiEventfd : public BaseAwaiter
 {
 public:
-    MultiEventfd(std::vector<int32_t> fd_vect);
+    explicit MultiEventfd(std::vector<int32_t> fd_vect);
     ~MultiEventfd() override;
     void Handle() override;
 private:
