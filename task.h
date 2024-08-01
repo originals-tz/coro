@@ -1,11 +1,6 @@
-/**
- * @brief 该文件包含了c++20协程核心的几个组件，详情查阅文档https://zh.cppreference.com/w/cpp/language/coroutines
- */
 #ifndef CORO_TASK_H
 #define CORO_TASK_H
 
-#include <evdns.h>
-#include <fmt/format.h>
 #include <coroutine>
 #include <functional>
 #include <iostream>
@@ -13,341 +8,364 @@
 #include <optional>
 #include <queue>
 #include <utility>
+#include <variant>
 
 namespace coro
 {
+class Executor;
+struct Context
+{
+    Executor* m_exec = nullptr;
+    std::function<void()> m_destroy = []{};
+};
 
-template <typename RET>
+template <typename T = void>
 class Task;
-template <typename RET>
-class TaskAwaiter;
 
-/**
- * @brief 协程返回值
- * @tparam T
- */
-template <typename T>
-struct PromiseRes
+struct PromiseBase
 {
-    void return_value(T ret) { m_ret.emplace(std::move(ret)); }
-    //! 存储返回值
-    std::optional<T> m_ret;
-};
-
-/**
- * @brief 协程空返回值
- */
-template <>
-struct PromiseRes<void>
-{
-    void return_void() {}
-};
-
-class HandlerBase
-{
-public:
-    HandlerBase() = default;
-    virtual ~HandlerBase() = default;
-    /**
-     * @brief 恢复协程
-     */
-    virtual void Resume() = 0;
-    /**
-     * @brief 协程是否完成
-     * @return 是否完成
-     */
-    virtual bool Done() = 0;
-    /**
-     * @brief 获取上一个协程
-     * @return 协程句柄
-     */
-    virtual std::unique_ptr<HandlerBase> Prev() = 0;
-    /**
-     * @brief 是否为根节点
-     * @return 是否为根节点
-     */
-    virtual bool IsRoot() = 0;
-    /**
-     * @brief 释放协程
-     */
-    virtual void Free() = 0;
-};
-
-template <typename T>
-class Handler : public HandlerBase
-{
-public:
-    Handler(std::coroutine_handle<T> handler)
-        : m_handler(handler)
-    {}
-
-    /**
-     * @brief 恢复协程
-     */
-    void Resume() override { m_handler.resume(); }
-
-    /**
-     * @brief 协程是否完成
-     * @return 协程是否完成
-     */
-    bool Done() override { return m_handler.done(); }
-
-    /**
-     * @brief 获取上一个协程
-     * @return 协程句柄
-     */
-    std::unique_ptr<HandlerBase> Prev() override
+    struct FinalAwaiter
     {
-        auto& promise = m_handler.promise();
-        return std::move(promise.m_prev);
+        bool await_ready() const noexcept { return false; }
+
+        template <typename promise_type>
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<promise_type> coroutine) noexcept
+        {
+            auto& promise = coroutine.promise();
+            if (promise.m_continuation != nullptr)
+            {
+                return promise.m_continuation;
+            }
+            else
+            {
+                promise.m_ctx.lock()->m_destroy();
+                return std::noop_coroutine();
+            }
+        }
+
+        void await_resume() noexcept {}
+    };
+
+    std::suspend_always initial_suspend() noexcept { return {}; }
+
+    FinalAwaiter final_suspend() noexcept { return {}; }
+
+    void SetContinuation(std::coroutine_handle<> continuation) noexcept { m_continuation = continuation; }
+
+    void SetContext(std::weak_ptr<Context> ctx) { m_ctx = std::move(ctx); }
+
+    std::weak_ptr<Context> GetContext() { return m_ctx; }
+
+protected:
+    std::coroutine_handle<> m_continuation{nullptr};
+    std::weak_ptr<Context> m_ctx;
+};
+
+template <typename return_type>
+class Promise : public PromiseBase
+{
+    using task_type = Task<return_type>;
+    using coroutine_handle = std::coroutine_handle<Promise<return_type>>;
+    static constexpr bool return_type_is_reference = std::is_reference_v<return_type>;
+    using stored_type = std::conditional_t<return_type_is_reference, std::remove_reference_t<return_type>*, std::remove_const_t<return_type>>;
+    using variant_type = std::variant<stored_type, std::exception_ptr>;
+
+public:
+    Promise(const Promise&) = delete;
+    Promise(Promise&& other) = delete;
+    Promise& operator=(const Promise&) = delete;
+    Promise& operator=(Promise&& other) = delete;
+
+    Promise() noexcept = default;
+    ~Promise() = default;
+
+    task_type get_return_object() noexcept;
+
+    template <typename value_type>
+        requires(return_type_is_reference and std::is_constructible_v<return_type, value_type &&>) or (not return_type_is_reference and std::is_constructible_v<stored_type, value_type &&>)
+    void return_value(value_type&& value)
+    {
+        if constexpr (return_type_is_reference)
+        {
+            return_type ref = static_cast<value_type&&>(value);
+            m_storage.template emplace<stored_type>(std::addressof(ref));
+        }
+        else
+        {
+            m_storage.template emplace<stored_type>(std::forward<value_type>(value));
+        }
     }
 
-    /**
-     * @brief 是否为根节点
-     * @return 是否为根节点
-     */
-    bool IsRoot() override { return m_handler.promise().m_prev == nullptr; }
-
-    /**
-     * @brief 释放协程
-     */
-    void Free() override
+    void return_value(stored_type value)
+        requires(not return_type_is_reference)
     {
-        auto& deleter = m_handler.promise().m_deleter;
-        if (deleter)
+        if constexpr (std::is_move_constructible_v<stored_type>)
         {
-            deleter();
+            m_storage.template emplace<stored_type>(std::move(value));
+        }
+        else
+        {
+            m_storage.template emplace<stored_type>(value);
+        }
+    }
+
+    void unhandled_exception() noexcept { new (&m_storage) variant_type(std::current_exception()); }
+
+    auto result() & -> decltype(auto)
+    {
+        if (std::holds_alternative<stored_type>(m_storage))
+        {
+            if constexpr (return_type_is_reference)
+            {
+                return static_cast<return_type>(*std::get<stored_type>(m_storage));
+            }
+            else
+            {
+                return static_cast<const return_type&>(std::get<stored_type>(m_storage));
+            }
+        }
+        else if (std::holds_alternative<std::exception_ptr>(m_storage))
+        {
+            std::rethrow_exception(std::get<std::exception_ptr>(m_storage));
+        }
+        else
+        {
+            throw std::runtime_error{"The return value was never set, did you execute the coroutine?"};
+        }
+    }
+
+    auto result() const& -> decltype(auto)
+    {
+        if (std::holds_alternative<stored_type>(m_storage))
+        {
+            if constexpr (return_type_is_reference)
+            {
+                return static_cast<std::add_const_t<return_type>>(*std::get<stored_type>(m_storage));
+            }
+            else
+            {
+                return static_cast<const return_type&>(std::get<stored_type>(m_storage));
+            }
+        }
+        else if (std::holds_alternative<std::exception_ptr>(m_storage))
+        {
+            std::rethrow_exception(std::get<std::exception_ptr>(m_storage));
+        }
+        else
+        {
+            throw std::runtime_error{"The return value was never set, did you execute the coroutine?"};
+        }
+    }
+
+    auto result() && -> decltype(auto)
+    {
+        if (std::holds_alternative<stored_type>(m_storage))
+        {
+            if constexpr (return_type_is_reference)
+            {
+                return static_cast<return_type>(*std::get<stored_type>(m_storage));
+            }
+            else if constexpr (std::is_move_constructible_v<return_type>)
+            {
+                return static_cast<return_type&&>(std::get<stored_type>(m_storage));
+            }
+            else
+            {
+                return static_cast<const return_type&&>(std::get<stored_type>(m_storage));
+            }
+        }
+        else if (std::holds_alternative<std::exception_ptr>(m_storage))
+        {
+            std::rethrow_exception(std::get<std::exception_ptr>(m_storage));
+        }
+        else
+        {
+            throw std::runtime_error{"The return value was never set, did you execute the coroutine?"};
         }
     }
 
 private:
-    //! 协程句柄
-    std::coroutine_handle<T> m_handler;
+    variant_type m_storage{};
 };
 
-template <typename RET>
-struct TaskPromise : public PromiseRes<RET>
+template <>
+class Promise<void> : public PromiseBase
 {
-#ifdef CO_DEBUG
-    TaskPromise()
+    using task_type = Task<void>;
+    using coroutine_handle = std::coroutine_handle<Promise<void>>;
+
+public:
+    Promise(const Promise&) = delete;
+    Promise(Promise&& other) = delete;
+    Promise& operator=(const Promise&) = delete;
+    Promise& operator=(Promise&& other) = delete;
+
+    Promise() noexcept = default;
+    ~Promise() = default;
+
+    task_type get_return_object() noexcept;
+
+    void return_void() noexcept {}
+
+    void unhandled_exception() noexcept { m_exception_ptr = std::current_exception(); }
+
+    void result()
     {
-        auto ptr = (void*)this;
-        std::cout << fmt::format("Promise : {}", ptr) << std::endl;
-    }
-
-    ~TaskPromise()
-    {
-        auto ptr = (void*)this;
-        std::cout << fmt::format("Release Promise : {}", ptr) << std::endl;
-    }
-#endif
-
-    /**
-     * @brief 获取promise对象
-     * @return
-     */
-    Task<RET> get_return_object() { return Task(std::coroutine_handle<TaskPromise>::from_promise(*this)); }
-
-    /**
-     * @brief 初始化
-     * @return
-     */
-    std::suspend_never initial_suspend() { return {}; }
-
-    /**
-     * @brief 协程结束
-     * @return
-     */
-    std::suspend_always final_suspend() noexcept
-    {
-        m_is_final = true;
-        return {};
-    }
-
-    /**
-     * @brief 异常处理
-     */
-    void unhandled_exception() {}
-
-    /**
-     * @brief 转换为可等待体
-     * @tparam TASK_RET
-     * @param task
-     * @return
-     */
-    template <class TASK_RET>
-    TaskAwaiter<TASK_RET> await_transform(Task<TASK_RET>&& task)
-    {
-        return TaskAwaiter<TASK_RET>(std::move(task));
-    }
-
-    /**
-     * @brief 转换为可等待体
-     * @tparam TASK_RET
-     * @param task
-     * @return
-     */
-    template <class T>
-    T await_transform(T&& task)
-    {
-        return task;
-    }
-
-    /**
-     * @brief 协程完成
-     * @tparam T
-     * @param handle
-     */
-    template <class T>
-    void Complete(std::coroutine_handle<T> handle)
-    {
-        if (handle && m_is_final)
+        if (m_exception_ptr)
         {
-            handle.resume();
-        }
-        else
-        {
-            m_prev = std::make_unique<Handler<T>>(handle);
+            std::rethrow_exception(m_exception_ptr);
         }
     }
 
-    /**
-     * @brief 恢复上一个协程
-     * @return
-     */
-    bool Prev()
-    {
-        if (m_prev)
-        {
-            m_prev->Resume();
-            return true;
-        }
-        return false;
-    }
-
-    //! 资源释放
-    std::function<void()> m_deleter;
-    //! 是否完成
-    bool m_is_final = false;
-    //! 上一个协程
-    std::unique_ptr<HandlerBase> m_prev;
+private:
+    std::exception_ptr m_exception_ptr{nullptr};
 };
 
-template <typename RET>
+template <typename return_type>
 class Task
 {
 public:
-    using promise_type = TaskPromise<RET>;
-    explicit Task(std::coroutine_handle<TaskPromise<RET>> handle) noexcept
-        : m_handle(handle)
+    using task_type = Task<return_type>;
+    using promise_type = Promise<return_type>;
+    using coroutine_handle = std::coroutine_handle<promise_type>;
+
+    struct awaitable_base
+    {
+        awaitable_base(coroutine_handle coroutine) noexcept
+            : m_coroutine(coroutine)
+        {}
+
+        bool await_ready() const noexcept { return !m_coroutine || m_coroutine.done(); }
+
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<> awaiting_coroutine) noexcept
+        {
+            m_coroutine.promise().SetContinuation(awaiting_coroutine);
+            return m_coroutine;
+        }
+
+        template <class T>
+        std::coroutine_handle<> await_suspend(std::coroutine_handle<coro::Promise<T>> awaiting_coroutine) noexcept
+        {
+            m_coroutine.promise().SetContinuation(awaiting_coroutine);
+            m_coroutine.promise().SetContext(awaiting_coroutine.promise().GetContext());
+            return m_coroutine;
+        }
+
+        std::coroutine_handle<promise_type> m_coroutine{nullptr};
+    };
+
+    Task(const Task&) = delete;
+    auto operator=(const Task&) -> Task& = delete;
+
+    Task() noexcept
+        : m_coroutine(nullptr)
+        , m_ctx(std::make_shared<Context>())
+    {}
+
+    explicit Task(coroutine_handle handle)
+        : m_coroutine(handle)
+        , m_ctx(std::make_shared<Context>())
+    {}
+
+    Task(Task&& other) noexcept
+        : m_coroutine(std::exchange(other.m_coroutine, nullptr))
+        , m_ctx(std::exchange(other.m_ctx, nullptr))
     {}
 
     ~Task()
     {
-        if (m_handle)
+        if (m_coroutine != nullptr)
         {
-            m_handle.destroy();
+            m_coroutine.destroy();
         }
     }
 
-    Task(Task&) = delete;
-    Task& operator=(Task&) = delete;
-
-    Task(Task&& task) noexcept
-        : m_handle(std::exchange(task.m_handle, nullptr))
-    {}
-
-    Task& operator=(Task&& task) noexcept
+    Task& operator=(Task&& other) noexcept
     {
-        m_handle = std::exchange(task.m_handle, nullptr);
+        if (std::addressof(other) != this)
+        {
+            if (m_coroutine != nullptr)
+            {
+                m_coroutine.destroy();
+            }
+
+            m_coroutine = std::exchange(other.m_coroutine, nullptr);
+        }
+
         return *this;
     }
 
-    /**
-     * @brief 协程上是否完成
-     * @return
-     */
-    bool IsDone() { return m_handle.done(); }
+    bool is_ready() const noexcept { return m_coroutine == nullptr || m_coroutine.done(); }
 
-    /**
-     * @brief 恢复协程
-     */
-    void Resume() { m_handle.resume(); }
-
-    /**
-     * @brief 协程结束
-     * @tparam T
-     * @param handle
-     */
-    template <typename T>
-    void Finally(std::coroutine_handle<TaskPromise<T>> handle)
+    bool resume()
     {
-        m_handle.promise().Complete(handle);
+        if (!m_coroutine.done())
+        {
+            m_coroutine.resume();
+        }
+        return !m_coroutine.done();
     }
 
-    /**
-     * @brief 返回值
-     * @return
-     */
-    operator RET() { return m_handle.promise()->m_ret.get(); }
-
-    //! 协程句柄
-    std::coroutine_handle<TaskPromise<RET>> m_handle;
-};
-
-/**
- * @brief 可等待体，由返回值
- * @tparam RET
- */
-template <typename RET>
-class TaskAwaiter
-{
-public:
-    explicit TaskAwaiter(Task<RET>&& task) noexcept
-        : m_task(std::move(task))
-    {}
-    TaskAwaiter(TaskAwaiter&) = delete;
-    TaskAwaiter& operator=(TaskAwaiter&) = delete;
-
-    bool await_ready() const noexcept { return false; }
-
-    template <typename T>
-    void await_suspend(std::coroutine_handle<TaskPromise<T>> handle) noexcept
+    bool destroy()
     {
-        m_task.Finally(handle);
+        if (m_coroutine != nullptr)
+        {
+            m_coroutine.destroy();
+            m_coroutine = nullptr;
+            return true;
+        }
+
+        return false;
     }
 
-    RET&& await_resume() noexcept { return std::move(m_task.m_handle.promise().m_ret.value()); }
+    auto operator co_await() const& noexcept
+    {
+        struct awaitable : public awaitable_base
+        {
+            auto await_resume() { return this->m_coroutine.promise().result(); }
+        };
+
+        return awaitable{m_coroutine};
+    }
+
+    auto operator co_await() const&& noexcept
+    {
+        struct awaitable : public awaitable_base
+        {
+            auto await_resume() { return std::move(this->m_coroutine.promise()).result(); }
+        };
+
+        return awaitable{m_coroutine};
+    }
+
+    auto promise() & -> promise_type& { return m_coroutine.promise(); }
+    auto promise() const& -> const promise_type& { return m_coroutine.promise(); }
+    auto promise() && -> promise_type&& { return std::move(m_coroutine.promise()); }
+
+    auto handle() -> coroutine_handle { return m_coroutine; }
+    std::shared_ptr<Context> GetContext() { return m_ctx; }
+    void SetExecutor(Executor* exec) { m_ctx->m_exec = exec; }
+    void SetDestroy(std::function<void()> destroy) { m_ctx->m_destroy = std::move(destroy); }
 
 private:
-    Task<RET> m_task;
+    coroutine_handle m_coroutine{nullptr};
+    std::shared_ptr<Context> m_ctx;
 };
 
-/**
- * @brief 无返回值的可等待体
- */
-template <>
-class TaskAwaiter<void>
+template <typename return_type>
+inline auto Promise<return_type>::get_return_object() noexcept -> Task<return_type>
 {
-public:
-    explicit TaskAwaiter(Task<void>&& task) noexcept
-        : m_task(std::move(task))
-    {}
-    TaskAwaiter(TaskAwaiter&) = delete;
-    TaskAwaiter& operator=(TaskAwaiter&) = delete;
-    bool await_ready() const noexcept { return false; }
+    auto t = Task<return_type>{coroutine_handle::from_promise(*this)};
+    m_ctx = t.GetContext();
+    return t;
+}
 
-    template <typename T>
-    void await_suspend(std::coroutine_handle<TaskPromise<T>> handle) noexcept
-    {
-        m_task.Finally(handle);
-    }
-
-    void await_resume() noexcept {}
-
-private:
-    Task<void> m_task;
-};
+inline auto Promise<void>::get_return_object() noexcept -> Task<>
+{
+    auto t = Task<>{coroutine_handle::from_promise(*this)};
+    m_ctx = t.GetContext();
+    return t;
+}
 
 }  // namespace coro
 

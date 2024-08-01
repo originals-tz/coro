@@ -7,7 +7,7 @@ event_base* base = nullptr;
 std::shared_ptr<coro::Executor> exec;
 
 // 封装libevent事件
-struct Sleep : coro::BaseAwaiter<void>
+struct Sleep : coro::BaseAwaiter
 {
     coro::Task<int> Wait(int sec)
     {
