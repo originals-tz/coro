@@ -1,10 +1,11 @@
 #ifndef CORO_AWAITER_H
 #define CORO_AWAITER_H
 
-#include <functional>
 #include <event2/event.h>
 #include <cassert>
+#include <functional>
 #include <optional>
+#include "executor.h"
 
 namespace coro
 {
@@ -38,7 +39,7 @@ public:
             assert(false && "协程上下文为空");
             return;
         }
-        m_base = ctx->m_base;
+        m_exec = ctx->m_exec;
         Handle();
     }
 
@@ -68,12 +69,12 @@ public:
      */
     event_base* EventBase()
     {
-        return m_base;
+        return m_exec->EventBase();
     }
 
 private:
     //! 事件循环
-    event_base* m_base = nullptr;
+    Executor* m_exec = nullptr;
     //! 恢复函数
     std::function<void()> m_resume;
 };

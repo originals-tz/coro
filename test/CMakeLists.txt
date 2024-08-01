@@ -27,7 +27,8 @@ foreach (v ${CPP_SRC_LIST})
             ../executor.cpp
             ../eventfd.cpp
             ../select.cpp
-            ../thread_pool.cpp)
+            ../thread_pool.cpp
+            ../cotask.cpp)
     target_link_libraries(${target_name}_test
             event
             pthread

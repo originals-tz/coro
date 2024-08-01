@@ -1,6 +1,5 @@
 #ifndef CORO_SELECT_H
 #define CORO_SELECT_H
-#include <utility>
 
 #include "channel.h"
 

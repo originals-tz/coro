@@ -5,6 +5,7 @@
 
 namespace coro
 {
+class Executor;
 class CoTask
 {
 public:
@@ -16,13 +17,7 @@ public:
      * @brief 执行协程任务
      * @return
      */
-    bool Run(event_base* base)
-    {
-        m_task = CoHandle();
-        m_task->SetEventBase(base);
-        m_task->resume();
-        return m_task->is_ready();
-    }
+    bool Run(Executor* exec);
 
     //! 被挂起的协程
     std::optional<Task<void>> m_task;

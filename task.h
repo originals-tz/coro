@@ -1,7 +1,6 @@
 #ifndef CORO_TASK_H
 #define CORO_TASK_H
 
-#include <event2/event.h>
 #include <coroutine>
 #include <functional>
 #include <iostream>
@@ -13,10 +12,10 @@
 
 namespace coro
 {
-
+class Executor;
 struct Context
 {
-    event_base* m_base = nullptr;
+    Executor* m_exec = nullptr;
     std::function<void()> m_destroy = []{};
 };
 
@@ -345,7 +344,7 @@ public:
 
     auto handle() -> coroutine_handle { return m_coroutine; }
     std::shared_ptr<Context> GetContext() { return m_ctx; }
-    void SetEventBase(event_base* base) { m_ctx->m_base = base; }
+    void SetExecutor(Executor* exec) { m_ctx->m_exec = exec; }
     void SetDestroy(std::function<void()> destroy) { m_ctx->m_destroy = std::move(destroy); }
 
 private:

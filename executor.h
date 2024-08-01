@@ -29,6 +29,12 @@ public:
      * @return
      */
     size_t GetTaskCount();
+
+    /**
+     * @brief 获取事件基
+     * @return
+     */
+    event_base* EventBase();
 private:
 
     //! 事件循环

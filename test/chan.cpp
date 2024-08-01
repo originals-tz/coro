@@ -58,7 +58,11 @@ coro::Task<void> SelectRead()
         {
             std::cout << "read" << val << std::endl;
         }
-    } while (co_await Select(ch2));
+        if (ch3.TryPop(str))
+        {
+            std::cout << "read" << str << std::endl;
+        }
+    } while (co_await Select(ch2, ch3));
 }
 
 coro::Task<void> WriteVal()
@@ -77,7 +81,7 @@ coro::Task<void> WriteStr()
 {
     for (int i = 0; i < 10; i++)
     {
-        ch3.Push(std::to_string(i));
+        ch3.Push(std::to_string(i) + "string");
     }
     co_return;
 }
@@ -87,6 +91,7 @@ TEST(coro, chan3)
 {
     auto t1 = RunTask(&SelectRead);
     auto t2 = RunTask(&WriteVal);
+    auto t3 = RunTask(&WriteStr);
 
     sleep(3);
     ch2.Close();

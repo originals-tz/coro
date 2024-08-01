@@ -9,7 +9,7 @@ Executor::Executor(event_base* base)
 
 void Executor::RunTask(const std::shared_ptr<CoTask>& task)
 {
-    if (!task->Run(m_base))
+    if (!task->Run(this))
     {
         void* ptr = task.get();
         m_task_map[ptr] = task;
@@ -33,4 +33,9 @@ void Executor::RunTask(const std::function<Task<void>()>& task)
 }
 
 size_t Executor::GetTaskCount() { return m_task_map.size(); }
+
+event_base* Executor::EventBase()
+{
+    return m_base;
+}
 }
