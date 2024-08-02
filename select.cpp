@@ -23,9 +23,11 @@ void MultiEventfd::Handle()
     }
 }
 
-void MultiEventfd::OnRead(int, short, void* arg)
+void MultiEventfd::OnRead(int fd, short, void* arg)
 {
     auto pthis = static_cast<MultiEventfd*>(arg);
+    eventfd_t val = 0;
+    eventfd_read(fd, &val);
     for (auto& ev : pthis->m_ev)
     {
         event_del(ev);

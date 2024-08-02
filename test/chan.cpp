@@ -62,6 +62,7 @@ coro::Task<void> SelectRead()
         {
             std::cout << "read" << str << std::endl;
         }
+        std::cout << "hello" << std::endl;
     } while (co_await Select(ch2, ch3));
 }
 
